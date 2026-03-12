@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["qdrant_edge",[["impl&lt;'a&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.94.0/core/convert/trait.TryInto.html\" title=\"trait core::convert::TryInto\">TryInto</a>&lt;&amp;'a <a class=\"struct\" href=\"qdrant_edge/struct.SparseVector.html\" title=\"struct qdrant_edge::SparseVector\">SparseVector</a>&gt; for &amp;'a <a class=\"enum\" href=\"qdrant_edge/enum.VectorInternal.html\" title=\"enum qdrant_edge::VectorInternal\">VectorInternal</a>",0],["impl&lt;'a&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.94.0/core/convert/trait.TryInto.html\" title=\"trait core::convert::TryInto\">TryInto</a>&lt;&amp;'a <a class=\"struct\" href=\"qdrant_edge/struct.TypedMultiDenseVector.html\" title=\"struct qdrant_edge::TypedMultiDenseVector\">TypedMultiDenseVector</a>&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.94.0/std/primitive.f32.html\">f32</a>&gt;&gt; for &amp;'a <a class=\"enum\" href=\"qdrant_edge/enum.VectorInternal.html\" title=\"enum qdrant_edge::VectorInternal\">VectorInternal</a>",0],["impl&lt;'a&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/1.94.0/core/convert/trait.TryInto.html\" title=\"trait core::convert::TryInto\">TryInto</a>&lt;&amp;'a [<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.94.0/std/primitive.f32.html\">f32</a>]&gt; for &amp;'a <a class=\"enum\" href=\"qdrant_edge/enum.VectorInternal.html\" title=\"enum qdrant_edge::VectorInternal\">VectorInternal</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[1451]}

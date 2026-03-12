@@ -1,0 +1,487 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `qdrant-edge/src/segment/index/field_index/full_text_index/tokenizers/ascii_folding.rs`."><title>ascii_folding.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../../../../../" data-static-root-path="../../../../../../../static.files/" data-current-crate="qdrant_edge" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.0 (4a4ef493e 2026-03-02)" data-channel="1.94.0" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../../../../src-files.js"></script><script defer src="../../../../../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../../../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">qdrant_edge/segment/index/field_index/full_text_index/tokenizers/</div>ascii_folding.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// ASCII folding implementation inspired by Lucene's ASCIIFoldingFilter.
+<a href=#2 id=2 data-nosnippet>2</a>// Converts non-ASCII Latin letters and various symbols to ASCII equivalents.
+<a href=#3 id=3 data-nosnippet>3</a>// This aims to be compatible with Lucene's mapping list used in ASCIIFoldingFilter.
+<a href=#4 id=4 data-nosnippet>4</a>
+<a href=#5 id=5 data-nosnippet>5</a></span><span class="kw">use </span>std::borrow::Cow;
+<a href=#6 id=6 data-nosnippet>6</a>
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">pub fn </span>fold_to_ascii_cow&lt;<span class="lifetime">'a</span>&gt;(input: Cow&lt;<span class="lifetime">'a</span>, str&gt;) -&gt; Cow&lt;<span class="lifetime">'a</span>, str&gt; {
+<a href=#8 id=8 data-nosnippet>8</a>    <span class="comment">// Cheap check if already ASCII
+<a href=#9 id=9 data-nosnippet>9</a>    </span><span class="kw">if </span>input.is_ascii() {
+<a href=#10 id=10 data-nosnippet>10</a>        <span class="kw">return </span>input;
+<a href=#11 id=11 data-nosnippet>11</a>    }
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a>    Cow::Owned(fold_to_ascii(input.as_ref()))
+<a href=#14 id=14 data-nosnippet>14</a>}
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">pub fn </span>fold_to_ascii(input: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#17 id=17 data-nosnippet>17</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = String::with_capacity(input.len());
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">for </span>ch <span class="kw">in </span>input.chars() {
+<a href=#19 id=19 data-nosnippet>19</a>        <span class="kw">if </span>ch.is_ascii() {
+<a href=#20 id=20 data-nosnippet>20</a>            out.push(ch);
+<a href=#21 id=21 data-nosnippet>21</a>            <span class="kw">continue</span>;
+<a href=#22 id=22 data-nosnippet>22</a>        }
+<a href=#23 id=23 data-nosnippet>23</a>        <span class="kw">match </span>fold_char(ch) {
+<a href=#24 id=24 data-nosnippet>24</a>            <span class="prelude-val">Some</span>(repl) =&gt; out.push_str(repl),
+<a href=#25 id=25 data-nosnippet>25</a>            <span class="prelude-val">None </span>=&gt; out.push(ch),
+<a href=#26 id=26 data-nosnippet>26</a>        }
+<a href=#27 id=27 data-nosnippet>27</a>    }
+<a href=#28 id=28 data-nosnippet>28</a>    out.shrink_to_fit();
+<a href=#29 id=29 data-nosnippet>29</a>    out
+<a href=#30 id=30 data-nosnippet>30</a>}
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="attr">#[inline]
+<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">fn </span>fold_char(c: char) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+<a href=#34 id=34 data-nosnippet>34</a>    <span class="comment">// Quick test
+<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">if </span>c &lt; <span class="string">'\u{0080}' </span>{
+<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#37 id=37 data-nosnippet>37</a>    }
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="comment">// Main mapping translated from Lucene's ASCIIFoldingFilter
+<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">let </span>s = <span class="kw">match </span>c {
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="comment">// A/a
+<a href=#42 id=42 data-nosnippet>42</a>        </span><span class="string">'\u{00C0}' </span>| <span class="string">'\u{00C1}' </span>| <span class="string">'\u{00C2}' </span>| <span class="string">'\u{00C3}' </span>| <span class="string">'\u{00C4}' </span>| <span class="string">'\u{00C5}'
+<a href=#43 id=43 data-nosnippet>43</a>        </span>| <span class="string">'\u{0100}' </span>| <span class="string">'\u{0102}' </span>| <span class="string">'\u{0104}' </span>| <span class="string">'\u{01CD}' </span>| <span class="string">'\u{01DE}' </span>| <span class="string">'\u{01E0}'
+<a href=#44 id=44 data-nosnippet>44</a>        </span>| <span class="string">'\u{01FA}' </span>| <span class="string">'\u{0200}' </span>| <span class="string">'\u{0202}' </span>| <span class="string">'\u{0226}' </span>| <span class="string">'\u{023A}' </span>| <span class="string">'\u{1D00}'
+<a href=#45 id=45 data-nosnippet>45</a>        </span>| <span class="string">'\u{1E00}' </span>| <span class="string">'\u{1EA0}' </span>| <span class="string">'\u{1EA2}' </span>| <span class="string">'\u{1EA4}' </span>| <span class="string">'\u{1EA6}' </span>| <span class="string">'\u{1EA8}'
+<a href=#46 id=46 data-nosnippet>46</a>        </span>| <span class="string">'\u{1EAA}' </span>| <span class="string">'\u{1EAC}' </span>| <span class="string">'\u{1EAE}' </span>| <span class="string">'\u{1EB0}' </span>| <span class="string">'\u{1EB2}' </span>| <span class="string">'\u{1EB4}'
+<a href=#47 id=47 data-nosnippet>47</a>        </span>| <span class="string">'\u{1EB6}' </span>| <span class="string">'\u{24B6}' </span>| <span class="string">'\u{FF21}' </span>=&gt; <span class="string">"A"</span>,
+<a href=#48 id=48 data-nosnippet>48</a>        <span class="string">'\u{00E0}' </span>| <span class="string">'\u{00E1}' </span>| <span class="string">'\u{00E2}' </span>| <span class="string">'\u{00E3}' </span>| <span class="string">'\u{00E4}' </span>| <span class="string">'\u{00E5}'
+<a href=#49 id=49 data-nosnippet>49</a>        </span>| <span class="string">'\u{0101}' </span>| <span class="string">'\u{0103}' </span>| <span class="string">'\u{0105}' </span>| <span class="string">'\u{01CE}' </span>| <span class="string">'\u{01DF}' </span>| <span class="string">'\u{01E1}'
+<a href=#50 id=50 data-nosnippet>50</a>        </span>| <span class="string">'\u{01FB}' </span>| <span class="string">'\u{0201}' </span>| <span class="string">'\u{0203}' </span>| <span class="string">'\u{0227}' </span>| <span class="string">'\u{0250}' </span>| <span class="string">'\u{0259}'
+<a href=#51 id=51 data-nosnippet>51</a>        </span>| <span class="string">'\u{025A}' </span>| <span class="string">'\u{1D8F}' </span>| <span class="string">'\u{1D95}' </span>| <span class="string">'\u{1E01}' </span>| <span class="string">'\u{1E9A}' </span>| <span class="string">'\u{1EA1}'
+<a href=#52 id=52 data-nosnippet>52</a>        </span>| <span class="string">'\u{1EA3}' </span>| <span class="string">'\u{1EA5}' </span>| <span class="string">'\u{1EA7}' </span>| <span class="string">'\u{1EA9}' </span>| <span class="string">'\u{1EAB}' </span>| <span class="string">'\u{1EAD}'
+<a href=#53 id=53 data-nosnippet>53</a>        </span>| <span class="string">'\u{1EAF}' </span>| <span class="string">'\u{1EB1}' </span>| <span class="string">'\u{1EB3}' </span>| <span class="string">'\u{1EB5}' </span>| <span class="string">'\u{1EB7}' </span>| <span class="string">'\u{2090}'
+<a href=#54 id=54 data-nosnippet>54</a>        </span>| <span class="string">'\u{2094}' </span>| <span class="string">'\u{24D0}' </span>| <span class="string">'\u{2C65}' </span>| <span class="string">'\u{2C6F}' </span>| <span class="string">'\u{FF41}' </span>=&gt; <span class="string">"a"</span>,
+<a href=#55 id=55 data-nosnippet>55</a>        <span class="string">'\u{A732}' </span>=&gt; <span class="string">"AA"</span>, <span class="comment">// Ꜳ
+<a href=#56 id=56 data-nosnippet>56</a>        </span><span class="string">'\u{00C6}' </span>| <span class="string">'\u{01E2}' </span>| <span class="string">'\u{01FC}' </span>| <span class="string">'\u{1D01}' </span>=&gt; <span class="string">"AE"</span>,
+<a href=#57 id=57 data-nosnippet>57</a>        <span class="string">'\u{A734}' </span>=&gt; <span class="string">"AO"</span>,
+<a href=#58 id=58 data-nosnippet>58</a>        <span class="string">'\u{A736}' </span>=&gt; <span class="string">"AU"</span>,
+<a href=#59 id=59 data-nosnippet>59</a>        <span class="string">'\u{A738}' </span>| <span class="string">'\u{A73A}' </span>=&gt; <span class="string">"AV"</span>,
+<a href=#60 id=60 data-nosnippet>60</a>        <span class="string">'\u{A73C}' </span>=&gt; <span class="string">"AY"</span>,
+<a href=#61 id=61 data-nosnippet>61</a>        <span class="string">'\u{249C}' </span>=&gt; <span class="string">"(a)"</span>,
+<a href=#62 id=62 data-nosnippet>62</a>        <span class="string">'\u{A733}' </span>=&gt; <span class="string">"aa"</span>,
+<a href=#63 id=63 data-nosnippet>63</a>        <span class="string">'\u{00E6}' </span>| <span class="string">'\u{01E3}' </span>| <span class="string">'\u{01FD}' </span>| <span class="string">'\u{1D02}' </span>=&gt; <span class="string">"ae"</span>,
+<a href=#64 id=64 data-nosnippet>64</a>        <span class="string">'\u{A735}' </span>=&gt; <span class="string">"ao"</span>,
+<a href=#65 id=65 data-nosnippet>65</a>        <span class="string">'\u{A737}' </span>=&gt; <span class="string">"au"</span>,
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="string">'\u{A739}' </span>| <span class="string">'\u{A73B}' </span>=&gt; <span class="string">"av"</span>,
+<a href=#67 id=67 data-nosnippet>67</a>        <span class="string">'\u{A73D}' </span>=&gt; <span class="string">"ay"</span>,
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a>        <span class="comment">// B/b
+<a href=#70 id=70 data-nosnippet>70</a>        </span><span class="string">'\u{0181}' </span>| <span class="string">'\u{0182}' </span>| <span class="string">'\u{0243}' </span>| <span class="string">'\u{0299}' </span>| <span class="string">'\u{1D03}' </span>| <span class="string">'\u{1E02}'
+<a href=#71 id=71 data-nosnippet>71</a>        </span>| <span class="string">'\u{1E04}' </span>| <span class="string">'\u{1E06}' </span>| <span class="string">'\u{24B7}' </span>| <span class="string">'\u{FF22}' </span>=&gt; <span class="string">"B"</span>,
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="string">'\u{0180}' </span>| <span class="string">'\u{0183}' </span>| <span class="string">'\u{0253}' </span>| <span class="string">'\u{1D6C}' </span>| <span class="string">'\u{1D80}' </span>| <span class="string">'\u{1E03}'
+<a href=#73 id=73 data-nosnippet>73</a>        </span>| <span class="string">'\u{1E05}' </span>| <span class="string">'\u{1E07}' </span>| <span class="string">'\u{24D1}' </span>| <span class="string">'\u{FF42}' </span>=&gt; <span class="string">"b"</span>,
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="string">'\u{249D}' </span>=&gt; <span class="string">"(b)"</span>,
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>        <span class="comment">// C/c
+<a href=#77 id=77 data-nosnippet>77</a>        </span><span class="string">'\u{00C7}' </span>| <span class="string">'\u{0106}' </span>| <span class="string">'\u{0108}' </span>| <span class="string">'\u{010A}' </span>| <span class="string">'\u{010C}' </span>| <span class="string">'\u{0187}'
+<a href=#78 id=78 data-nosnippet>78</a>        </span>| <span class="string">'\u{023B}' </span>| <span class="string">'\u{0297}' </span>| <span class="string">'\u{1D04}' </span>| <span class="string">'\u{1E08}' </span>| <span class="string">'\u{24B8}' </span>| <span class="string">'\u{FF23}' </span>=&gt; <span class="string">"C"</span>,
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="string">'\u{00E7}' </span>| <span class="string">'\u{0107}' </span>| <span class="string">'\u{0109}' </span>| <span class="string">'\u{010B}' </span>| <span class="string">'\u{010D}' </span>| <span class="string">'\u{0188}'
+<a href=#80 id=80 data-nosnippet>80</a>        </span>| <span class="string">'\u{023C}' </span>| <span class="string">'\u{0255}' </span>| <span class="string">'\u{1E09}' </span>| <span class="string">'\u{2184}' </span>| <span class="string">'\u{24D2}' </span>| <span class="string">'\u{A73E}'
+<a href=#81 id=81 data-nosnippet>81</a>        </span>| <span class="string">'\u{A73F}' </span>| <span class="string">'\u{FF43}' </span>=&gt; <span class="string">"c"</span>,
+<a href=#82 id=82 data-nosnippet>82</a>        <span class="string">'\u{249E}' </span>=&gt; <span class="string">"(c)"</span>,
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="comment">// D/d
+<a href=#85 id=85 data-nosnippet>85</a>        </span><span class="string">'\u{00D0}' </span>| <span class="string">'\u{010E}' </span>| <span class="string">'\u{0110}' </span>| <span class="string">'\u{0189}' </span>| <span class="string">'\u{018A}' </span>| <span class="string">'\u{018B}'
+<a href=#86 id=86 data-nosnippet>86</a>        </span>| <span class="string">'\u{1D05}' </span>| <span class="string">'\u{1D06}' </span>| <span class="string">'\u{1E0A}' </span>| <span class="string">'\u{1E0C}' </span>| <span class="string">'\u{1E0E}' </span>| <span class="string">'\u{1E10}'
+<a href=#87 id=87 data-nosnippet>87</a>        </span>| <span class="string">'\u{1E12}' </span>| <span class="string">'\u{24B9}' </span>| <span class="string">'\u{A779}' </span>| <span class="string">'\u{FF24}' </span>=&gt; <span class="string">"D"</span>,
+<a href=#88 id=88 data-nosnippet>88</a>        <span class="string">'\u{00F0}' </span>| <span class="string">'\u{010F}' </span>| <span class="string">'\u{0111}' </span>| <span class="string">'\u{018C}' </span>| <span class="string">'\u{0221}' </span>| <span class="string">'\u{0256}'
+<a href=#89 id=89 data-nosnippet>89</a>        </span>| <span class="string">'\u{0257}' </span>| <span class="string">'\u{1D6D}' </span>| <span class="string">'\u{1D81}' </span>| <span class="string">'\u{1D91}' </span>| <span class="string">'\u{1E0B}' </span>| <span class="string">'\u{1E0D}'
+<a href=#90 id=90 data-nosnippet>90</a>        </span>| <span class="string">'\u{1E0F}' </span>| <span class="string">'\u{1E11}' </span>| <span class="string">'\u{1E13}' </span>| <span class="string">'\u{24D3}' </span>| <span class="string">'\u{A77A}' </span>| <span class="string">'\u{FF44}' </span>=&gt; <span class="string">"d"</span>,
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="string">'\u{01C4}' </span>| <span class="string">'\u{01F1}' </span>=&gt; <span class="string">"DZ"</span>,
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="string">'\u{01C5}' </span>| <span class="string">'\u{01F2}' </span>=&gt; <span class="string">"Dz"</span>,
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="string">'\u{249F}' </span>=&gt; <span class="string">"(d)"</span>,
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="string">'\u{0238}' </span>=&gt; <span class="string">"db"</span>,
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="string">'\u{01C6}' </span>| <span class="string">'\u{01F3}' </span>| <span class="string">'\u{02A3}' </span>| <span class="string">'\u{02A5}' </span>=&gt; <span class="string">"dz"</span>,
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="comment">// E/e
+<a href=#98 id=98 data-nosnippet>98</a>        </span><span class="string">'\u{00C8}' </span>| <span class="string">'\u{00C9}' </span>| <span class="string">'\u{00CA}' </span>| <span class="string">'\u{00CB}' </span>| <span class="string">'\u{0112}' </span>| <span class="string">'\u{0114}'
+<a href=#99 id=99 data-nosnippet>99</a>        </span>| <span class="string">'\u{0116}' </span>| <span class="string">'\u{0118}' </span>| <span class="string">'\u{011A}' </span>| <span class="string">'\u{018E}' </span>| <span class="string">'\u{0190}' </span>| <span class="string">'\u{0204}'
+<a href=#100 id=100 data-nosnippet>100</a>        </span>| <span class="string">'\u{0206}' </span>| <span class="string">'\u{0228}' </span>| <span class="string">'\u{0246}' </span>| <span class="string">'\u{1D07}' </span>| <span class="string">'\u{1E14}' </span>| <span class="string">'\u{1E16}'
+<a href=#101 id=101 data-nosnippet>101</a>        </span>| <span class="string">'\u{1E18}' </span>| <span class="string">'\u{1E1A}' </span>| <span class="string">'\u{1E1C}' </span>| <span class="string">'\u{1EB8}' </span>| <span class="string">'\u{1EBA}' </span>| <span class="string">'\u{1EBC}'
+<a href=#102 id=102 data-nosnippet>102</a>        </span>| <span class="string">'\u{1EBE}' </span>| <span class="string">'\u{1EC0}' </span>| <span class="string">'\u{1EC2}' </span>| <span class="string">'\u{1EC4}' </span>| <span class="string">'\u{1EC6}' </span>| <span class="string">'\u{24BA}'
+<a href=#103 id=103 data-nosnippet>103</a>        </span>| <span class="string">'\u{2C7B}' </span>| <span class="string">'\u{FF25}' </span>=&gt; <span class="string">"E"</span>,
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="string">'\u{00E8}' </span>| <span class="string">'\u{00E9}' </span>| <span class="string">'\u{00EA}' </span>| <span class="string">'\u{00EB}' </span>| <span class="string">'\u{0113}' </span>| <span class="string">'\u{0115}'
+<a href=#105 id=105 data-nosnippet>105</a>        </span>| <span class="string">'\u{0117}' </span>| <span class="string">'\u{0119}' </span>| <span class="string">'\u{011B}' </span>| <span class="string">'\u{01DD}' </span>| <span class="string">'\u{0205}' </span>| <span class="string">'\u{0207}'
+<a href=#106 id=106 data-nosnippet>106</a>        </span>| <span class="string">'\u{0229}' </span>| <span class="string">'\u{0247}' </span>| <span class="string">'\u{0258}' </span>| <span class="string">'\u{025B}' </span>| <span class="string">'\u{025C}' </span>| <span class="string">'\u{025D}'
+<a href=#107 id=107 data-nosnippet>107</a>        </span>| <span class="string">'\u{025E}' </span>| <span class="string">'\u{029A}' </span>| <span class="string">'\u{1D08}' </span>| <span class="string">'\u{1D92}' </span>| <span class="string">'\u{1D93}' </span>| <span class="string">'\u{1D94}'
+<a href=#108 id=108 data-nosnippet>108</a>        </span>| <span class="string">'\u{1E15}' </span>| <span class="string">'\u{1E17}' </span>| <span class="string">'\u{1E19}' </span>| <span class="string">'\u{1E1B}' </span>| <span class="string">'\u{1E1D}' </span>| <span class="string">'\u{1EB9}'
+<a href=#109 id=109 data-nosnippet>109</a>        </span>| <span class="string">'\u{1EBB}' </span>| <span class="string">'\u{1EBD}' </span>| <span class="string">'\u{1EBF}' </span>| <span class="string">'\u{1EC1}' </span>| <span class="string">'\u{1EC3}' </span>| <span class="string">'\u{1EC5}'
+<a href=#110 id=110 data-nosnippet>110</a>        </span>| <span class="string">'\u{1EC7}' </span>| <span class="string">'\u{2091}' </span>| <span class="string">'\u{24D4}' </span>| <span class="string">'\u{2C78}' </span>| <span class="string">'\u{FF45}' </span>=&gt; <span class="string">"e"</span>,
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="string">'\u{24A0}' </span>=&gt; <span class="string">"(e)"</span>,
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="comment">// F/f and ligatures
+<a href=#114 id=114 data-nosnippet>114</a>        </span><span class="string">'\u{0191}' </span>| <span class="string">'\u{1E1E}' </span>| <span class="string">'\u{24BB}' </span>| <span class="string">'\u{A730}' </span>| <span class="string">'\u{A77B}' </span>| <span class="string">'\u{A7FB}'
+<a href=#115 id=115 data-nosnippet>115</a>        </span>| <span class="string">'\u{FF26}' </span>=&gt; <span class="string">"F"</span>,
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="string">'\u{0192}' </span>| <span class="string">'\u{1D6E}' </span>| <span class="string">'\u{1D82}' </span>| <span class="string">'\u{1E1F}' </span>| <span class="string">'\u{1E9B}' </span>| <span class="string">'\u{24D5}'
+<a href=#117 id=117 data-nosnippet>117</a>        </span>| <span class="string">'\u{A77C}' </span>| <span class="string">'\u{FF46}' </span>=&gt; <span class="string">"f"</span>,
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="string">'\u{24A1}' </span>=&gt; <span class="string">"(f)"</span>,
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="string">'\u{FB00}' </span>=&gt; <span class="string">"ff"</span>,
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="string">'\u{FB03}' </span>=&gt; <span class="string">"ffi"</span>,
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="string">'\u{FB04}' </span>=&gt; <span class="string">"ffl"</span>,
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="string">'\u{FB01}' </span>=&gt; <span class="string">"fi"</span>,
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="string">'\u{FB02}' </span>=&gt; <span class="string">"fl"</span>,
+<a href=#124 id=124 data-nosnippet>124</a>
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="comment">// G/g
+<a href=#126 id=126 data-nosnippet>126</a>        </span><span class="string">'\u{011C}' </span>| <span class="string">'\u{011E}' </span>| <span class="string">'\u{0120}' </span>| <span class="string">'\u{0122}' </span>| <span class="string">'\u{0193}' </span>| <span class="string">'\u{01E4}'
+<a href=#127 id=127 data-nosnippet>127</a>        </span>| <span class="string">'\u{01E6}' </span>| <span class="string">'\u{01F4}' </span>| <span class="string">'\u{0262}' </span>| <span class="string">'\u{029B}' </span>| <span class="string">'\u{1E20}' </span>| <span class="string">'\u{24BC}'
+<a href=#128 id=128 data-nosnippet>128</a>        </span>| <span class="string">'\u{A77D}' </span>| <span class="string">'\u{A77E}' </span>| <span class="string">'\u{FF27}' </span>=&gt; <span class="string">"G"</span>,
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="string">'\u{011D}' </span>| <span class="string">'\u{011F}' </span>| <span class="string">'\u{0121}' </span>| <span class="string">'\u{0123}' </span>| <span class="string">'\u{01E5}' </span>| <span class="string">'\u{01E7}'
+<a href=#130 id=130 data-nosnippet>130</a>        </span>| <span class="string">'\u{01F5}' </span>| <span class="string">'\u{0260}' </span>| <span class="string">'\u{0261}' </span>| <span class="string">'\u{1D77}' </span>| <span class="string">'\u{1D79}' </span>| <span class="string">'\u{1D83}'
+<a href=#131 id=131 data-nosnippet>131</a>        </span>| <span class="string">'\u{1E21}' </span>| <span class="string">'\u{24D6}' </span>| <span class="string">'\u{A77F}' </span>| <span class="string">'\u{FF47}' </span>=&gt; <span class="string">"g"</span>,
+<a href=#132 id=132 data-nosnippet>132</a>        <span class="string">'\u{24A2}' </span>=&gt; <span class="string">"(g)"</span>,
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>        <span class="comment">// H/h, HV
+<a href=#135 id=135 data-nosnippet>135</a>        </span><span class="string">'\u{0124}' </span>| <span class="string">'\u{0126}' </span>| <span class="string">'\u{021E}' </span>| <span class="string">'\u{029C}' </span>| <span class="string">'\u{1E22}' </span>| <span class="string">'\u{1E24}'
+<a href=#136 id=136 data-nosnippet>136</a>        </span>| <span class="string">'\u{1E26}' </span>| <span class="string">'\u{1E28}' </span>| <span class="string">'\u{1E2A}' </span>| <span class="string">'\u{24BD}' </span>| <span class="string">'\u{2C67}' </span>| <span class="string">'\u{2C75}'
+<a href=#137 id=137 data-nosnippet>137</a>        </span>| <span class="string">'\u{FF28}' </span>=&gt; <span class="string">"H"</span>,
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="string">'\u{0125}' </span>| <span class="string">'\u{0127}' </span>| <span class="string">'\u{021F}' </span>| <span class="string">'\u{0265}' </span>| <span class="string">'\u{0266}' </span>| <span class="string">'\u{02AE}'
+<a href=#139 id=139 data-nosnippet>139</a>        </span>| <span class="string">'\u{02AF}' </span>| <span class="string">'\u{1E23}' </span>| <span class="string">'\u{1E25}' </span>| <span class="string">'\u{1E27}' </span>| <span class="string">'\u{1E29}' </span>| <span class="string">'\u{1E2B}'
+<a href=#140 id=140 data-nosnippet>140</a>        </span>| <span class="string">'\u{1E96}' </span>| <span class="string">'\u{24D7}' </span>| <span class="string">'\u{2C68}' </span>| <span class="string">'\u{2C76}' </span>| <span class="string">'\u{FF48}' </span>=&gt; <span class="string">"h"</span>,
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="string">'\u{01F6}' </span>=&gt; <span class="string">"HV"</span>,
+<a href=#142 id=142 data-nosnippet>142</a>        <span class="string">'\u{24A3}' </span>=&gt; <span class="string">"(h)"</span>,
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="string">'\u{0195}' </span>=&gt; <span class="string">"hv"</span>,
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>        <span class="comment">// I/i, IJ
+<a href=#146 id=146 data-nosnippet>146</a>        </span><span class="string">'\u{00CC}' </span>| <span class="string">'\u{00CD}' </span>| <span class="string">'\u{00CE}' </span>| <span class="string">'\u{00CF}' </span>| <span class="string">'\u{0128}' </span>| <span class="string">'\u{012A}'
+<a href=#147 id=147 data-nosnippet>147</a>        </span>| <span class="string">'\u{012C}' </span>| <span class="string">'\u{012E}' </span>| <span class="string">'\u{0130}' </span>| <span class="string">'\u{0196}' </span>| <span class="string">'\u{0197}' </span>| <span class="string">'\u{01CF}'
+<a href=#148 id=148 data-nosnippet>148</a>        </span>| <span class="string">'\u{0208}' </span>| <span class="string">'\u{020A}' </span>| <span class="string">'\u{026A}' </span>| <span class="string">'\u{1D7B}' </span>| <span class="string">'\u{1E2C}' </span>| <span class="string">'\u{1E2E}'
+<a href=#149 id=149 data-nosnippet>149</a>        </span>| <span class="string">'\u{1EC8}' </span>| <span class="string">'\u{1ECA}' </span>| <span class="string">'\u{24BE}' </span>| <span class="string">'\u{A7FE}' </span>| <span class="string">'\u{FF29}' </span>=&gt; <span class="string">"I"</span>,
+<a href=#150 id=150 data-nosnippet>150</a>        <span class="string">'\u{00EC}' </span>| <span class="string">'\u{00ED}' </span>| <span class="string">'\u{00EE}' </span>| <span class="string">'\u{00EF}' </span>| <span class="string">'\u{0129}' </span>| <span class="string">'\u{012B}'
+<a href=#151 id=151 data-nosnippet>151</a>        </span>| <span class="string">'\u{012D}' </span>| <span class="string">'\u{012F}' </span>| <span class="string">'\u{0131}' </span>| <span class="string">'\u{01D0}' </span>| <span class="string">'\u{0209}' </span>| <span class="string">'\u{020B}'
+<a href=#152 id=152 data-nosnippet>152</a>        </span>| <span class="string">'\u{0268}' </span>| <span class="string">'\u{1D09}' </span>| <span class="string">'\u{1D62}' </span>| <span class="string">'\u{1D7C}' </span>| <span class="string">'\u{1D96}' </span>| <span class="string">'\u{1E2D}'
+<a href=#153 id=153 data-nosnippet>153</a>        </span>| <span class="string">'\u{1E2F}' </span>| <span class="string">'\u{1EC9}' </span>| <span class="string">'\u{1ECB}' </span>| <span class="string">'\u{2071}' </span>| <span class="string">'\u{24D8}' </span>| <span class="string">'\u{FF49}' </span>=&gt; <span class="string">"i"</span>,
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="string">'\u{0132}' </span>=&gt; <span class="string">"IJ"</span>,
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="string">'\u{24A4}' </span>=&gt; <span class="string">"(i)"</span>,
+<a href=#156 id=156 data-nosnippet>156</a>        <span class="string">'\u{0133}' </span>=&gt; <span class="string">"ij"</span>,
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>        <span class="comment">// J/j
+<a href=#159 id=159 data-nosnippet>159</a>        </span><span class="string">'\u{0134}' </span>| <span class="string">'\u{0248}' </span>| <span class="string">'\u{1D0A}' </span>| <span class="string">'\u{24BF}' </span>| <span class="string">'\u{FF2A}' </span>=&gt; <span class="string">"J"</span>,
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="string">'\u{0135}' </span>| <span class="string">'\u{01F0}' </span>| <span class="string">'\u{0237}' </span>| <span class="string">'\u{0249}' </span>| <span class="string">'\u{025F}' </span>| <span class="string">'\u{0284}'
+<a href=#161 id=161 data-nosnippet>161</a>        </span>| <span class="string">'\u{029D}' </span>| <span class="string">'\u{24D9}' </span>| <span class="string">'\u{2C7C}' </span>| <span class="string">'\u{FF4A}' </span>=&gt; <span class="string">"j"</span>,
+<a href=#162 id=162 data-nosnippet>162</a>        <span class="string">'\u{24A5}' </span>=&gt; <span class="string">"(j)"</span>,
+<a href=#163 id=163 data-nosnippet>163</a>
+<a href=#164 id=164 data-nosnippet>164</a>        <span class="comment">// K/k
+<a href=#165 id=165 data-nosnippet>165</a>        </span><span class="string">'\u{0136}' </span>| <span class="string">'\u{0198}' </span>| <span class="string">'\u{01E8}' </span>| <span class="string">'\u{1D0B}' </span>| <span class="string">'\u{1E30}' </span>| <span class="string">'\u{1E32}'
+<a href=#166 id=166 data-nosnippet>166</a>        </span>| <span class="string">'\u{1E34}' </span>| <span class="string">'\u{24C0}' </span>| <span class="string">'\u{2C69}' </span>| <span class="string">'\u{A740}' </span>| <span class="string">'\u{A742}' </span>| <span class="string">'\u{A744}'
+<a href=#167 id=167 data-nosnippet>167</a>        </span>| <span class="string">'\u{FF2B}' </span>=&gt; <span class="string">"K"</span>,
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="string">'\u{0137}' </span>| <span class="string">'\u{0199}' </span>| <span class="string">'\u{01E9}' </span>| <span class="string">'\u{029E}' </span>| <span class="string">'\u{1D84}' </span>| <span class="string">'\u{1E31}'
+<a href=#169 id=169 data-nosnippet>169</a>        </span>| <span class="string">'\u{1E33}' </span>| <span class="string">'\u{1E35}' </span>| <span class="string">'\u{24DA}' </span>| <span class="string">'\u{2C6A}' </span>| <span class="string">'\u{A741}' </span>| <span class="string">'\u{A743}'
+<a href=#170 id=170 data-nosnippet>170</a>        </span>| <span class="string">'\u{A745}' </span>| <span class="string">'\u{FF4B}' </span>=&gt; <span class="string">"k"</span>,
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="string">'\u{24A6}' </span>=&gt; <span class="string">"(k)"</span>,
+<a href=#172 id=172 data-nosnippet>172</a>
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="comment">// L/l, LJ/ll etc.
+<a href=#174 id=174 data-nosnippet>174</a>        </span><span class="string">'\u{0139}' </span>| <span class="string">'\u{013B}' </span>| <span class="string">'\u{013D}' </span>| <span class="string">'\u{013F}' </span>| <span class="string">'\u{0141}' </span>| <span class="string">'\u{023D}'
+<a href=#175 id=175 data-nosnippet>175</a>        </span>| <span class="string">'\u{029F}' </span>| <span class="string">'\u{1D0C}' </span>| <span class="string">'\u{1E36}' </span>| <span class="string">'\u{1E38}' </span>| <span class="string">'\u{1E3A}' </span>| <span class="string">'\u{1E3C}'
+<a href=#176 id=176 data-nosnippet>176</a>        </span>| <span class="string">'\u{24C1}' </span>| <span class="string">'\u{2C60}' </span>| <span class="string">'\u{2C62}' </span>| <span class="string">'\u{A746}' </span>| <span class="string">'\u{A748}' </span>| <span class="string">'\u{A780}'
+<a href=#177 id=177 data-nosnippet>177</a>        </span>| <span class="string">'\u{FF2C}' </span>=&gt; <span class="string">"L"</span>,
+<a href=#178 id=178 data-nosnippet>178</a>        <span class="string">'\u{013A}' </span>| <span class="string">'\u{013C}' </span>| <span class="string">'\u{013E}' </span>| <span class="string">'\u{0140}' </span>| <span class="string">'\u{0142}' </span>| <span class="string">'\u{019A}'
+<a href=#179 id=179 data-nosnippet>179</a>        </span>| <span class="string">'\u{0234}' </span>| <span class="string">'\u{026B}' </span>| <span class="string">'\u{026C}' </span>| <span class="string">'\u{026D}' </span>| <span class="string">'\u{1D85}' </span>| <span class="string">'\u{1E37}'
+<a href=#180 id=180 data-nosnippet>180</a>        </span>| <span class="string">'\u{1E39}' </span>| <span class="string">'\u{1E3B}' </span>| <span class="string">'\u{1E3D}' </span>| <span class="string">'\u{24DB}' </span>| <span class="string">'\u{2C61}' </span>| <span class="string">'\u{A747}'
+<a href=#181 id=181 data-nosnippet>181</a>        </span>| <span class="string">'\u{A749}' </span>| <span class="string">'\u{A781}' </span>| <span class="string">'\u{FF4C}' </span>=&gt; <span class="string">"l"</span>,
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="string">'\u{01C7}' </span>=&gt; <span class="string">"LJ"</span>,
+<a href=#183 id=183 data-nosnippet>183</a>        <span class="string">'\u{1EFA}' </span>=&gt; <span class="string">"LL"</span>,
+<a href=#184 id=184 data-nosnippet>184</a>        <span class="string">'\u{01C8}' </span>=&gt; <span class="string">"Lj"</span>,
+<a href=#185 id=185 data-nosnippet>185</a>        <span class="string">'\u{24A7}' </span>=&gt; <span class="string">"(l)"</span>,
+<a href=#186 id=186 data-nosnippet>186</a>        <span class="string">'\u{01C9}' </span>=&gt; <span class="string">"lj"</span>,
+<a href=#187 id=187 data-nosnippet>187</a>        <span class="string">'\u{1EFB}' </span>=&gt; <span class="string">"ll"</span>,
+<a href=#188 id=188 data-nosnippet>188</a>        <span class="string">'\u{02AA}' </span>=&gt; <span class="string">"ls"</span>,
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="string">'\u{02AB}' </span>=&gt; <span class="string">"lz"</span>,
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="comment">// M/m
+<a href=#192 id=192 data-nosnippet>192</a>        </span><span class="string">'\u{019C}' </span>| <span class="string">'\u{1D0D}' </span>| <span class="string">'\u{1E3E}' </span>| <span class="string">'\u{1E40}' </span>| <span class="string">'\u{1E42}' </span>| <span class="string">'\u{24C2}'
+<a href=#193 id=193 data-nosnippet>193</a>        </span>| <span class="string">'\u{2C6E}' </span>| <span class="string">'\u{A7FD}' </span>| <span class="string">'\u{A7FF}' </span>| <span class="string">'\u{FF2D}' </span>=&gt; <span class="string">"M"</span>,
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="string">'\u{026F}' </span>| <span class="string">'\u{0270}' </span>| <span class="string">'\u{0271}' </span>| <span class="string">'\u{1D6F}' </span>| <span class="string">'\u{1D86}' </span>| <span class="string">'\u{1E3F}'
+<a href=#195 id=195 data-nosnippet>195</a>        </span>| <span class="string">'\u{1E41}' </span>| <span class="string">'\u{1E43}' </span>| <span class="string">'\u{24DC}' </span>| <span class="string">'\u{FF4D}' </span>=&gt; <span class="string">"m"</span>,
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="string">'\u{24A8}' </span>=&gt; <span class="string">"(m)"</span>,
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="comment">// N/n, NJ
+<a href=#199 id=199 data-nosnippet>199</a>        </span><span class="string">'\u{00D1}' </span>| <span class="string">'\u{0143}' </span>| <span class="string">'\u{0145}' </span>| <span class="string">'\u{0147}' </span>| <span class="string">'\u{014A}' </span>| <span class="string">'\u{019D}'
+<a href=#200 id=200 data-nosnippet>200</a>        </span>| <span class="string">'\u{01F8}' </span>| <span class="string">'\u{0220}' </span>| <span class="string">'\u{0274}' </span>| <span class="string">'\u{1D0E}' </span>| <span class="string">'\u{1E44}' </span>| <span class="string">'\u{1E46}'
+<a href=#201 id=201 data-nosnippet>201</a>        </span>| <span class="string">'\u{1E48}' </span>| <span class="string">'\u{1E4A}' </span>| <span class="string">'\u{24C3}' </span>| <span class="string">'\u{FF2E}' </span>=&gt; <span class="string">"N"</span>,
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="string">'\u{00F1}' </span>| <span class="string">'\u{0144}' </span>| <span class="string">'\u{0146}' </span>| <span class="string">'\u{0148}' </span>| <span class="string">'\u{0149}' </span>| <span class="string">'\u{014B}'
+<a href=#203 id=203 data-nosnippet>203</a>        </span>| <span class="string">'\u{019E}' </span>| <span class="string">'\u{01F9}' </span>| <span class="string">'\u{0235}' </span>| <span class="string">'\u{0272}' </span>| <span class="string">'\u{0273}' </span>| <span class="string">'\u{1D70}'
+<a href=#204 id=204 data-nosnippet>204</a>        </span>| <span class="string">'\u{1D87}' </span>| <span class="string">'\u{1E45}' </span>| <span class="string">'\u{1E47}' </span>| <span class="string">'\u{1E49}' </span>| <span class="string">'\u{1E4B}' </span>| <span class="string">'\u{207F}'
+<a href=#205 id=205 data-nosnippet>205</a>        </span>| <span class="string">'\u{24DD}' </span>| <span class="string">'\u{FF4E}' </span>=&gt; <span class="string">"n"</span>,
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="string">'\u{01CA}' </span>=&gt; <span class="string">"NJ"</span>,
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="string">'\u{01CB}' </span>=&gt; <span class="string">"Nj"</span>,
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="string">'\u{24A9}' </span>=&gt; <span class="string">"(n)"</span>,
+<a href=#209 id=209 data-nosnippet>209</a>        <span class="string">'\u{01CC}' </span>=&gt; <span class="string">"nj"</span>,
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="comment">// O/o, OE/OO/OU
+<a href=#212 id=212 data-nosnippet>212</a>        </span><span class="string">'\u{00D2}' </span>| <span class="string">'\u{00D3}' </span>| <span class="string">'\u{00D4}' </span>| <span class="string">'\u{00D5}' </span>| <span class="string">'\u{00D6}' </span>| <span class="string">'\u{00D8}'
+<a href=#213 id=213 data-nosnippet>213</a>        </span>| <span class="string">'\u{014C}' </span>| <span class="string">'\u{014E}' </span>| <span class="string">'\u{0150}' </span>| <span class="string">'\u{0186}' </span>| <span class="string">'\u{019F}' </span>| <span class="string">'\u{01A0}'
+<a href=#214 id=214 data-nosnippet>214</a>        </span>| <span class="string">'\u{01D1}' </span>| <span class="string">'\u{01EA}' </span>| <span class="string">'\u{01EC}' </span>| <span class="string">'\u{01FE}' </span>| <span class="string">'\u{020C}' </span>| <span class="string">'\u{020E}'
+<a href=#215 id=215 data-nosnippet>215</a>        </span>| <span class="string">'\u{022A}' </span>| <span class="string">'\u{022C}' </span>| <span class="string">'\u{022E}' </span>| <span class="string">'\u{0230}' </span>| <span class="string">'\u{1D0F}' </span>| <span class="string">'\u{1D10}'
+<a href=#216 id=216 data-nosnippet>216</a>        </span>| <span class="string">'\u{1E4C}' </span>| <span class="string">'\u{1E4E}' </span>| <span class="string">'\u{1E50}' </span>| <span class="string">'\u{1E52}' </span>| <span class="string">'\u{1ECC}' </span>| <span class="string">'\u{1ECE}'
+<a href=#217 id=217 data-nosnippet>217</a>        </span>| <span class="string">'\u{1ED0}' </span>| <span class="string">'\u{1ED2}' </span>| <span class="string">'\u{1ED4}' </span>| <span class="string">'\u{1ED6}' </span>| <span class="string">'\u{1ED8}' </span>| <span class="string">'\u{1EDA}'
+<a href=#218 id=218 data-nosnippet>218</a>        </span>| <span class="string">'\u{1EDC}' </span>| <span class="string">'\u{1EDE}' </span>| <span class="string">'\u{1EE0}' </span>| <span class="string">'\u{1EE2}' </span>| <span class="string">'\u{24C4}' </span>| <span class="string">'\u{A74A}'
+<a href=#219 id=219 data-nosnippet>219</a>        </span>| <span class="string">'\u{A74C}' </span>| <span class="string">'\u{FF2F}' </span>=&gt; <span class="string">"O"</span>,
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="string">'\u{00F2}' </span>| <span class="string">'\u{00F3}' </span>| <span class="string">'\u{00F4}' </span>| <span class="string">'\u{00F5}' </span>| <span class="string">'\u{00F6}' </span>| <span class="string">'\u{00F8}'
+<a href=#221 id=221 data-nosnippet>221</a>        </span>| <span class="string">'\u{014D}' </span>| <span class="string">'\u{014F}' </span>| <span class="string">'\u{0151}' </span>| <span class="string">'\u{01A1}' </span>| <span class="string">'\u{01D2}' </span>| <span class="string">'\u{01EB}'
+<a href=#222 id=222 data-nosnippet>222</a>        </span>| <span class="string">'\u{01ED}' </span>| <span class="string">'\u{01FF}' </span>| <span class="string">'\u{020D}' </span>| <span class="string">'\u{020F}' </span>| <span class="string">'\u{022B}' </span>| <span class="string">'\u{022D}'
+<a href=#223 id=223 data-nosnippet>223</a>        </span>| <span class="string">'\u{022F}' </span>| <span class="string">'\u{0231}' </span>| <span class="string">'\u{0254}' </span>| <span class="string">'\u{0275}' </span>| <span class="string">'\u{1D16}' </span>| <span class="string">'\u{1D17}'
+<a href=#224 id=224 data-nosnippet>224</a>        </span>| <span class="string">'\u{1D97}' </span>| <span class="string">'\u{1E4D}' </span>| <span class="string">'\u{1E4F}' </span>| <span class="string">'\u{1E51}' </span>| <span class="string">'\u{1E53}' </span>| <span class="string">'\u{1ECD}'
+<a href=#225 id=225 data-nosnippet>225</a>        </span>| <span class="string">'\u{1ECF}' </span>| <span class="string">'\u{1ED1}' </span>| <span class="string">'\u{1ED3}' </span>| <span class="string">'\u{1ED5}' </span>| <span class="string">'\u{1ED7}' </span>| <span class="string">'\u{1ED9}'
+<a href=#226 id=226 data-nosnippet>226</a>        </span>| <span class="string">'\u{1EDB}' </span>| <span class="string">'\u{1EDD}' </span>| <span class="string">'\u{1EDF}' </span>| <span class="string">'\u{1EE1}' </span>| <span class="string">'\u{1EE3}' </span>| <span class="string">'\u{2092}'
+<a href=#227 id=227 data-nosnippet>227</a>        </span>| <span class="string">'\u{24DE}' </span>| <span class="string">'\u{2C7A}' </span>| <span class="string">'\u{A74B}' </span>| <span class="string">'\u{A74D}' </span>| <span class="string">'\u{FF4F}' </span>=&gt; <span class="string">"o"</span>,
+<a href=#228 id=228 data-nosnippet>228</a>        <span class="string">'\u{0152}' </span>| <span class="string">'\u{0276}' </span>=&gt; <span class="string">"OE"</span>,
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="string">'\u{A74E}' </span>=&gt; <span class="string">"OO"</span>,
+<a href=#230 id=230 data-nosnippet>230</a>        <span class="string">'\u{0222}' </span>| <span class="string">'\u{1D15}' </span>=&gt; <span class="string">"OU"</span>,
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="string">'\u{24AA}' </span>=&gt; <span class="string">"(o)"</span>,
+<a href=#232 id=232 data-nosnippet>232</a>        <span class="string">'\u{0153}' </span>| <span class="string">'\u{1D14}' </span>=&gt; <span class="string">"oe"</span>,
+<a href=#233 id=233 data-nosnippet>233</a>        <span class="string">'\u{A74F}' </span>=&gt; <span class="string">"oo"</span>,
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="string">'\u{0223}' </span>=&gt; <span class="string">"ou"</span>,
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="comment">// P/p
+<a href=#237 id=237 data-nosnippet>237</a>        </span><span class="string">'\u{01A4}' </span>| <span class="string">'\u{1D18}' </span>| <span class="string">'\u{1E54}' </span>| <span class="string">'\u{1E56}' </span>| <span class="string">'\u{24C5}' </span>| <span class="string">'\u{2C63}'
+<a href=#238 id=238 data-nosnippet>238</a>        </span>| <span class="string">'\u{A750}' </span>| <span class="string">'\u{A752}' </span>| <span class="string">'\u{A754}' </span>| <span class="string">'\u{FF30}' </span>=&gt; <span class="string">"P"</span>,
+<a href=#239 id=239 data-nosnippet>239</a>        <span class="string">'\u{01A5}' </span>| <span class="string">'\u{1D71}' </span>| <span class="string">'\u{1D7D}' </span>| <span class="string">'\u{1D88}' </span>| <span class="string">'\u{1E55}' </span>| <span class="string">'\u{1E57}'
+<a href=#240 id=240 data-nosnippet>240</a>        </span>| <span class="string">'\u{24DF}' </span>| <span class="string">'\u{A751}' </span>| <span class="string">'\u{A753}' </span>| <span class="string">'\u{A755}' </span>| <span class="string">'\u{A7FC}' </span>| <span class="string">'\u{FF50}' </span>=&gt; <span class="string">"p"</span>,
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="string">'\u{24AB}' </span>=&gt; <span class="string">"(p)"</span>,
+<a href=#242 id=242 data-nosnippet>242</a>
+<a href=#243 id=243 data-nosnippet>243</a>        <span class="comment">// Q/q
+<a href=#244 id=244 data-nosnippet>244</a>        </span><span class="string">'\u{024A}' </span>| <span class="string">'\u{24C6}' </span>| <span class="string">'\u{A756}' </span>| <span class="string">'\u{A758}' </span>| <span class="string">'\u{FF31}' </span>=&gt; <span class="string">"Q"</span>,
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="string">'\u{0138}' </span>| <span class="string">'\u{024B}' </span>| <span class="string">'\u{02A0}' </span>| <span class="string">'\u{24E0}' </span>| <span class="string">'\u{A757}' </span>| <span class="string">'\u{A759}'
+<a href=#246 id=246 data-nosnippet>246</a>        </span>| <span class="string">'\u{FF51}' </span>=&gt; <span class="string">"q"</span>,
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="string">'\u{24AC}' </span>=&gt; <span class="string">"(q)"</span>,
+<a href=#248 id=248 data-nosnippet>248</a>        <span class="string">'\u{0239}' </span>=&gt; <span class="string">"qp"</span>,
+<a href=#249 id=249 data-nosnippet>249</a>
+<a href=#250 id=250 data-nosnippet>250</a>        <span class="comment">// R/r
+<a href=#251 id=251 data-nosnippet>251</a>        </span><span class="string">'\u{0154}' </span>| <span class="string">'\u{0156}' </span>| <span class="string">'\u{0158}' </span>| <span class="string">'\u{0210}' </span>| <span class="string">'\u{0212}' </span>| <span class="string">'\u{024C}'
+<a href=#252 id=252 data-nosnippet>252</a>        </span>| <span class="string">'\u{0280}' </span>| <span class="string">'\u{0281}' </span>| <span class="string">'\u{1D19}' </span>| <span class="string">'\u{1D1A}' </span>| <span class="string">'\u{1E58}' </span>| <span class="string">'\u{1E5A}'
+<a href=#253 id=253 data-nosnippet>253</a>        </span>| <span class="string">'\u{1E5C}' </span>| <span class="string">'\u{1E5E}' </span>| <span class="string">'\u{24C7}' </span>| <span class="string">'\u{2C64}' </span>| <span class="string">'\u{A75A}' </span>| <span class="string">'\u{A782}'
+<a href=#254 id=254 data-nosnippet>254</a>        </span>| <span class="string">'\u{FF32}' </span>=&gt; <span class="string">"R"</span>,
+<a href=#255 id=255 data-nosnippet>255</a>        <span class="string">'\u{0155}' </span>| <span class="string">'\u{0157}' </span>| <span class="string">'\u{0159}' </span>| <span class="string">'\u{0211}' </span>| <span class="string">'\u{0213}' </span>| <span class="string">'\u{024D}'
+<a href=#256 id=256 data-nosnippet>256</a>        </span>| <span class="string">'\u{027C}' </span>| <span class="string">'\u{027D}' </span>| <span class="string">'\u{027E}' </span>| <span class="string">'\u{027F}' </span>| <span class="string">'\u{1D63}' </span>| <span class="string">'\u{1D72}'
+<a href=#257 id=257 data-nosnippet>257</a>        </span>| <span class="string">'\u{1D73}' </span>| <span class="string">'\u{1D89}' </span>| <span class="string">'\u{1E59}' </span>| <span class="string">'\u{1E5B}' </span>| <span class="string">'\u{1E5D}' </span>| <span class="string">'\u{1E5F}'
+<a href=#258 id=258 data-nosnippet>258</a>        </span>| <span class="string">'\u{24E1}' </span>| <span class="string">'\u{A75B}' </span>| <span class="string">'\u{A783}' </span>| <span class="string">'\u{FF52}' </span>=&gt; <span class="string">"r"</span>,
+<a href=#259 id=259 data-nosnippet>259</a>        <span class="string">'\u{24AD}' </span>=&gt; <span class="string">"(r)"</span>,
+<a href=#260 id=260 data-nosnippet>260</a>
+<a href=#261 id=261 data-nosnippet>261</a>        <span class="comment">// S/s and ß/ẞ and st
+<a href=#262 id=262 data-nosnippet>262</a>        </span><span class="string">'\u{015A}' </span>| <span class="string">'\u{015C}' </span>| <span class="string">'\u{015E}' </span>| <span class="string">'\u{0160}' </span>| <span class="string">'\u{0218}' </span>| <span class="string">'\u{1E60}'
+<a href=#263 id=263 data-nosnippet>263</a>        </span>| <span class="string">'\u{1E62}' </span>| <span class="string">'\u{1E64}' </span>| <span class="string">'\u{1E66}' </span>| <span class="string">'\u{1E68}' </span>| <span class="string">'\u{24C8}' </span>| <span class="string">'\u{A731}'
+<a href=#264 id=264 data-nosnippet>264</a>        </span>| <span class="string">'\u{A785}' </span>| <span class="string">'\u{FF33}' </span>=&gt; <span class="string">"S"</span>,
+<a href=#265 id=265 data-nosnippet>265</a>        <span class="string">'\u{015B}' </span>| <span class="string">'\u{015D}' </span>| <span class="string">'\u{015F}' </span>| <span class="string">'\u{0161}' </span>| <span class="string">'\u{017F}' </span>| <span class="string">'\u{0219}'
+<a href=#266 id=266 data-nosnippet>266</a>        </span>| <span class="string">'\u{023F}' </span>| <span class="string">'\u{0282}' </span>| <span class="string">'\u{1D74}' </span>| <span class="string">'\u{1D8A}' </span>| <span class="string">'\u{1E61}' </span>| <span class="string">'\u{1E63}'
+<a href=#267 id=267 data-nosnippet>267</a>        </span>| <span class="string">'\u{1E65}' </span>| <span class="string">'\u{1E67}' </span>| <span class="string">'\u{1E69}' </span>| <span class="string">'\u{1E9C}' </span>| <span class="string">'\u{1E9D}' </span>| <span class="string">'\u{24E2}'
+<a href=#268 id=268 data-nosnippet>268</a>        </span>| <span class="string">'\u{A784}' </span>| <span class="string">'\u{FF53}' </span>=&gt; <span class="string">"s"</span>,
+<a href=#269 id=269 data-nosnippet>269</a>        <span class="string">'\u{1E9E}' </span>=&gt; <span class="string">"SS"</span>,
+<a href=#270 id=270 data-nosnippet>270</a>        <span class="string">'\u{24AE}' </span>=&gt; <span class="string">"(s)"</span>,
+<a href=#271 id=271 data-nosnippet>271</a>        <span class="string">'\u{00DF}' </span>=&gt; <span class="string">"ss"</span>,
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="string">'\u{FB06}' </span>=&gt; <span class="string">"st"</span>,
+<a href=#273 id=273 data-nosnippet>273</a>
+<a href=#274 id=274 data-nosnippet>274</a>        <span class="comment">// T/t, TH/th, TZ
+<a href=#275 id=275 data-nosnippet>275</a>        </span><span class="string">'\u{0162}' </span>| <span class="string">'\u{0164}' </span>| <span class="string">'\u{0166}' </span>| <span class="string">'\u{01AC}' </span>| <span class="string">'\u{01AE}' </span>| <span class="string">'\u{021A}'
+<a href=#276 id=276 data-nosnippet>276</a>        </span>| <span class="string">'\u{023E}' </span>| <span class="string">'\u{1D1B}' </span>| <span class="string">'\u{1E6A}' </span>| <span class="string">'\u{1E6C}' </span>| <span class="string">'\u{1E6E}' </span>| <span class="string">'\u{1E70}'
+<a href=#277 id=277 data-nosnippet>277</a>        </span>| <span class="string">'\u{24C9}' </span>| <span class="string">'\u{A786}' </span>| <span class="string">'\u{FF34}' </span>=&gt; <span class="string">"T"</span>,
+<a href=#278 id=278 data-nosnippet>278</a>        <span class="string">'\u{0163}' </span>| <span class="string">'\u{0165}' </span>| <span class="string">'\u{0167}' </span>| <span class="string">'\u{01AB}' </span>| <span class="string">'\u{01AD}' </span>| <span class="string">'\u{021B}'
+<a href=#279 id=279 data-nosnippet>279</a>        </span>| <span class="string">'\u{0236}' </span>| <span class="string">'\u{0287}' </span>| <span class="string">'\u{0288}' </span>| <span class="string">'\u{1D75}' </span>| <span class="string">'\u{1E6B}' </span>| <span class="string">'\u{1E6D}'
+<a href=#280 id=280 data-nosnippet>280</a>        </span>| <span class="string">'\u{1E6F}' </span>| <span class="string">'\u{1E71}' </span>| <span class="string">'\u{1E97}' </span>| <span class="string">'\u{24E3}' </span>| <span class="string">'\u{2C66}' </span>| <span class="string">'\u{FF54}' </span>=&gt; <span class="string">"t"</span>,
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="string">'\u{00DE}' </span>| <span class="string">'\u{A766}' </span>=&gt; <span class="string">"TH"</span>,
+<a href=#282 id=282 data-nosnippet>282</a>        <span class="string">'\u{A728}' </span>=&gt; <span class="string">"TZ"</span>,
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="string">'\u{24AF}' </span>=&gt; <span class="string">"(t)"</span>,
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="string">'\u{02A8}' </span>=&gt; <span class="string">"tc"</span>,
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="string">'\u{00FE}' </span>| <span class="string">'\u{1D7A}' </span>| <span class="string">'\u{A767}' </span>=&gt; <span class="string">"th"</span>,
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="string">'\u{02A6}' </span>=&gt; <span class="string">"ts"</span>,
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="string">'\u{A729}' </span>=&gt; <span class="string">"tz"</span>,
+<a href=#288 id=288 data-nosnippet>288</a>
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="comment">// U/u
+<a href=#290 id=290 data-nosnippet>290</a>        </span><span class="string">'\u{00D9}' </span>| <span class="string">'\u{00DA}' </span>| <span class="string">'\u{00DB}' </span>| <span class="string">'\u{00DC}' </span>| <span class="string">'\u{0168}' </span>| <span class="string">'\u{016A}'
+<a href=#291 id=291 data-nosnippet>291</a>        </span>| <span class="string">'\u{016C}' </span>| <span class="string">'\u{016E}' </span>| <span class="string">'\u{0170}' </span>| <span class="string">'\u{0172}' </span>| <span class="string">'\u{01AF}' </span>| <span class="string">'\u{01D3}'
+<a href=#292 id=292 data-nosnippet>292</a>        </span>| <span class="string">'\u{01D5}' </span>| <span class="string">'\u{01D7}' </span>| <span class="string">'\u{01D9}' </span>| <span class="string">'\u{01DB}' </span>| <span class="string">'\u{0214}' </span>| <span class="string">'\u{0216}'
+<a href=#293 id=293 data-nosnippet>293</a>        </span>| <span class="string">'\u{0244}' </span>| <span class="string">'\u{1D1C}' </span>| <span class="string">'\u{1D7E}' </span>| <span class="string">'\u{1E72}' </span>| <span class="string">'\u{1E74}' </span>| <span class="string">'\u{1E76}'
+<a href=#294 id=294 data-nosnippet>294</a>        </span>| <span class="string">'\u{1E78}' </span>| <span class="string">'\u{1E7A}' </span>| <span class="string">'\u{1EE4}' </span>| <span class="string">'\u{1EE6}' </span>| <span class="string">'\u{1EE8}' </span>| <span class="string">'\u{1EEA}'
+<a href=#295 id=295 data-nosnippet>295</a>        </span>| <span class="string">'\u{1EEC}' </span>| <span class="string">'\u{1EEE}' </span>| <span class="string">'\u{1EF0}' </span>| <span class="string">'\u{24CA}' </span>| <span class="string">'\u{FF35}' </span>=&gt; <span class="string">"U"</span>,
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="string">'\u{00F9}' </span>| <span class="string">'\u{00FA}' </span>| <span class="string">'\u{00FB}' </span>| <span class="string">'\u{00FC}' </span>| <span class="string">'\u{0169}' </span>| <span class="string">'\u{016B}'
+<a href=#297 id=297 data-nosnippet>297</a>        </span>| <span class="string">'\u{016D}' </span>| <span class="string">'\u{016F}' </span>| <span class="string">'\u{0171}' </span>| <span class="string">'\u{0173}' </span>| <span class="string">'\u{01B0}' </span>| <span class="string">'\u{01D4}'
+<a href=#298 id=298 data-nosnippet>298</a>        </span>| <span class="string">'\u{01D6}' </span>| <span class="string">'\u{01D8}' </span>| <span class="string">'\u{01DA}' </span>| <span class="string">'\u{01DC}' </span>| <span class="string">'\u{0215}' </span>| <span class="string">'\u{0217}'
+<a href=#299 id=299 data-nosnippet>299</a>        </span>| <span class="string">'\u{0289}' </span>| <span class="string">'\u{1D64}' </span>| <span class="string">'\u{1D99}' </span>| <span class="string">'\u{1E73}' </span>| <span class="string">'\u{1E75}' </span>| <span class="string">'\u{1E77}'
+<a href=#300 id=300 data-nosnippet>300</a>        </span>| <span class="string">'\u{1E79}' </span>| <span class="string">'\u{1E7B}' </span>| <span class="string">'\u{1EE5}' </span>| <span class="string">'\u{1EE7}' </span>| <span class="string">'\u{1EE9}' </span>| <span class="string">'\u{1EEB}'
+<a href=#301 id=301 data-nosnippet>301</a>        </span>| <span class="string">'\u{1EED}' </span>| <span class="string">'\u{1EEF}' </span>| <span class="string">'\u{1EF1}' </span>| <span class="string">'\u{24E4}' </span>| <span class="string">'\u{FF55}' </span>=&gt; <span class="string">"u"</span>,
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="string">'\u{24B0}' </span>=&gt; <span class="string">"(u)"</span>,
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="string">'\u{1D6B}' </span>=&gt; <span class="string">"ue"</span>,
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>        <span class="comment">// V/v
+<a href=#306 id=306 data-nosnippet>306</a>        </span><span class="string">'\u{01B2}' </span>| <span class="string">'\u{0245}' </span>| <span class="string">'\u{1D20}' </span>| <span class="string">'\u{1E7C}' </span>| <span class="string">'\u{1E7E}' </span>| <span class="string">'\u{1EFC}'
+<a href=#307 id=307 data-nosnippet>307</a>        </span>| <span class="string">'\u{24CB}' </span>| <span class="string">'\u{A75E}' </span>| <span class="string">'\u{A768}' </span>| <span class="string">'\u{FF36}' </span>=&gt; <span class="string">"V"</span>,
+<a href=#308 id=308 data-nosnippet>308</a>        <span class="string">'\u{028B}' </span>| <span class="string">'\u{028C}' </span>| <span class="string">'\u{1D65}' </span>| <span class="string">'\u{1D8C}' </span>| <span class="string">'\u{1E7D}' </span>| <span class="string">'\u{1E7F}'
+<a href=#309 id=309 data-nosnippet>309</a>        </span>| <span class="string">'\u{24E5}' </span>| <span class="string">'\u{2C71}' </span>| <span class="string">'\u{2C74}' </span>| <span class="string">'\u{A75F}' </span>| <span class="string">'\u{FF56}' </span>=&gt; <span class="string">"v"</span>,
+<a href=#310 id=310 data-nosnippet>310</a>        <span class="string">'\u{A760}' </span>=&gt; <span class="string">"VY"</span>,
+<a href=#311 id=311 data-nosnippet>311</a>        <span class="string">'\u{24B1}' </span>=&gt; <span class="string">"(v)"</span>,
+<a href=#312 id=312 data-nosnippet>312</a>        <span class="string">'\u{A761}' </span>=&gt; <span class="string">"vy"</span>,
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="comment">// W/w
+<a href=#315 id=315 data-nosnippet>315</a>        </span><span class="string">'\u{0174}' </span>| <span class="string">'\u{01F7}' </span>| <span class="string">'\u{1D21}' </span>| <span class="string">'\u{1E80}' </span>| <span class="string">'\u{1E82}' </span>| <span class="string">'\u{1E84}'
+<a href=#316 id=316 data-nosnippet>316</a>        </span>| <span class="string">'\u{1E86}' </span>| <span class="string">'\u{1E88}' </span>| <span class="string">'\u{24CC}' </span>| <span class="string">'\u{2C72}' </span>| <span class="string">'\u{FF37}' </span>=&gt; <span class="string">"W"</span>,
+<a href=#317 id=317 data-nosnippet>317</a>        <span class="string">'\u{0175}' </span>| <span class="string">'\u{01BF}' </span>| <span class="string">'\u{028D}' </span>| <span class="string">'\u{1E81}' </span>| <span class="string">'\u{1E83}' </span>| <span class="string">'\u{1E85}'
+<a href=#318 id=318 data-nosnippet>318</a>        </span>| <span class="string">'\u{1E87}' </span>| <span class="string">'\u{1E89}' </span>| <span class="string">'\u{1E98}' </span>| <span class="string">'\u{24E6}' </span>| <span class="string">'\u{2C73}' </span>| <span class="string">'\u{FF57}' </span>=&gt; <span class="string">"w"</span>,
+<a href=#319 id=319 data-nosnippet>319</a>        <span class="string">'\u{24B2}' </span>=&gt; <span class="string">"(w)"</span>,
+<a href=#320 id=320 data-nosnippet>320</a>
+<a href=#321 id=321 data-nosnippet>321</a>        <span class="comment">// X/x
+<a href=#322 id=322 data-nosnippet>322</a>        </span><span class="string">'\u{1E8A}' </span>| <span class="string">'\u{1E8C}' </span>| <span class="string">'\u{24CD}' </span>| <span class="string">'\u{FF38}' </span>=&gt; <span class="string">"X"</span>,
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="string">'\u{1D8D}' </span>| <span class="string">'\u{1E8B}' </span>| <span class="string">'\u{1E8D}' </span>| <span class="string">'\u{2093}' </span>| <span class="string">'\u{24E7}' </span>| <span class="string">'\u{FF58}' </span>=&gt; <span class="string">"x"</span>,
+<a href=#324 id=324 data-nosnippet>324</a>        <span class="string">'\u{24B3}' </span>=&gt; <span class="string">"(x)"</span>,
+<a href=#325 id=325 data-nosnippet>325</a>
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="comment">// Y/y
+<a href=#327 id=327 data-nosnippet>327</a>        </span><span class="string">'\u{00DD}' </span>| <span class="string">'\u{0176}' </span>| <span class="string">'\u{0178}' </span>| <span class="string">'\u{01B3}' </span>| <span class="string">'\u{0232}' </span>| <span class="string">'\u{024E}'
+<a href=#328 id=328 data-nosnippet>328</a>        </span>| <span class="string">'\u{028F}' </span>| <span class="string">'\u{1E8E}' </span>| <span class="string">'\u{1EF2}' </span>| <span class="string">'\u{1EF4}' </span>| <span class="string">'\u{1EF6}' </span>| <span class="string">'\u{1EF8}'
+<a href=#329 id=329 data-nosnippet>329</a>        </span>| <span class="string">'\u{1EFE}' </span>| <span class="string">'\u{24CE}' </span>| <span class="string">'\u{FF39}' </span>=&gt; <span class="string">"Y"</span>,
+<a href=#330 id=330 data-nosnippet>330</a>        <span class="string">'\u{00FD}' </span>| <span class="string">'\u{00FF}' </span>| <span class="string">'\u{0177}' </span>| <span class="string">'\u{01B4}' </span>| <span class="string">'\u{0233}' </span>| <span class="string">'\u{024F}'
+<a href=#331 id=331 data-nosnippet>331</a>        </span>| <span class="string">'\u{028E}' </span>| <span class="string">'\u{1E8F}' </span>| <span class="string">'\u{1E99}' </span>| <span class="string">'\u{1EF3}' </span>| <span class="string">'\u{1EF5}' </span>| <span class="string">'\u{1EF7}'
+<a href=#332 id=332 data-nosnippet>332</a>        </span>| <span class="string">'\u{1EF9}' </span>| <span class="string">'\u{1EFF}' </span>| <span class="string">'\u{24E8}' </span>| <span class="string">'\u{FF59}' </span>=&gt; <span class="string">"y"</span>,
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="string">'\u{24B4}' </span>=&gt; <span class="string">"(y)"</span>,
+<a href=#334 id=334 data-nosnippet>334</a>
+<a href=#335 id=335 data-nosnippet>335</a>        <span class="comment">// Z/z
+<a href=#336 id=336 data-nosnippet>336</a>        </span><span class="string">'\u{0179}' </span>| <span class="string">'\u{017B}' </span>| <span class="string">'\u{017D}' </span>| <span class="string">'\u{01B5}' </span>| <span class="string">'\u{021C}' </span>| <span class="string">'\u{0224}'
+<a href=#337 id=337 data-nosnippet>337</a>        </span>| <span class="string">'\u{1D22}' </span>| <span class="string">'\u{1E90}' </span>| <span class="string">'\u{1E92}' </span>| <span class="string">'\u{1E94}' </span>| <span class="string">'\u{24CF}' </span>| <span class="string">'\u{2C6B}'
+<a href=#338 id=338 data-nosnippet>338</a>        </span>| <span class="string">'\u{A762}' </span>| <span class="string">'\u{FF3A}' </span>=&gt; <span class="string">"Z"</span>,
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="string">'\u{017A}' </span>| <span class="string">'\u{017C}' </span>| <span class="string">'\u{017E}' </span>| <span class="string">'\u{01B6}' </span>| <span class="string">'\u{021D}' </span>| <span class="string">'\u{0225}'
+<a href=#340 id=340 data-nosnippet>340</a>        </span>| <span class="string">'\u{0240}' </span>| <span class="string">'\u{0290}' </span>| <span class="string">'\u{0291}' </span>| <span class="string">'\u{1D76}' </span>| <span class="string">'\u{1D8E}' </span>| <span class="string">'\u{1E91}'
+<a href=#341 id=341 data-nosnippet>341</a>        </span>| <span class="string">'\u{1E93}' </span>| <span class="string">'\u{1E95}' </span>| <span class="string">'\u{24E9}' </span>| <span class="string">'\u{2C6C}' </span>| <span class="string">'\u{A763}' </span>| <span class="string">'\u{FF5A}' </span>=&gt; <span class="string">"z"</span>,
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="string">'\u{24B5}' </span>=&gt; <span class="string">"(z)"</span>,
+<a href=#343 id=343 data-nosnippet>343</a>
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="comment">// Digits and circled/parenthesized forms
+<a href=#345 id=345 data-nosnippet>345</a>        </span><span class="string">'\u{2070}' </span>| <span class="string">'\u{2080}' </span>| <span class="string">'\u{24EA}' </span>| <span class="string">'\u{24FF}' </span>| <span class="string">'\u{FF10}' </span>=&gt; <span class="string">"0"</span>,
+<a href=#346 id=346 data-nosnippet>346</a>        <span class="string">'\u{00B9}' </span>| <span class="string">'\u{2081}' </span>| <span class="string">'\u{2460}' </span>| <span class="string">'\u{24F5}' </span>| <span class="string">'\u{2776}' </span>| <span class="string">'\u{2780}'
+<a href=#347 id=347 data-nosnippet>347</a>        </span>| <span class="string">'\u{278A}' </span>| <span class="string">'\u{FF11}' </span>=&gt; <span class="string">"1"</span>,
+<a href=#348 id=348 data-nosnippet>348</a>        <span class="string">'\u{2488}' </span>=&gt; <span class="string">"1."</span>,
+<a href=#349 id=349 data-nosnippet>349</a>        <span class="string">'\u{2474}' </span>=&gt; <span class="string">"(1)"</span>,
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="string">'\u{00B2}' </span>| <span class="string">'\u{2082}' </span>| <span class="string">'\u{2461}' </span>| <span class="string">'\u{24F6}' </span>| <span class="string">'\u{2777}' </span>| <span class="string">'\u{2781}'
+<a href=#351 id=351 data-nosnippet>351</a>        </span>| <span class="string">'\u{278B}' </span>| <span class="string">'\u{FF12}' </span>=&gt; <span class="string">"2"</span>,
+<a href=#352 id=352 data-nosnippet>352</a>        <span class="string">'\u{2489}' </span>=&gt; <span class="string">"2."</span>,
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="string">'\u{2475}' </span>=&gt; <span class="string">"(2)"</span>,
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="string">'\u{00B3}' </span>| <span class="string">'\u{2083}' </span>| <span class="string">'\u{2462}' </span>| <span class="string">'\u{24F7}' </span>| <span class="string">'\u{2778}' </span>| <span class="string">'\u{2782}'
+<a href=#355 id=355 data-nosnippet>355</a>        </span>| <span class="string">'\u{278C}' </span>| <span class="string">'\u{FF13}' </span>=&gt; <span class="string">"3"</span>,
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="string">'\u{248A}' </span>=&gt; <span class="string">"3."</span>,
+<a href=#357 id=357 data-nosnippet>357</a>        <span class="string">'\u{2476}' </span>=&gt; <span class="string">"(3)"</span>,
+<a href=#358 id=358 data-nosnippet>358</a>        <span class="string">'\u{2074}' </span>| <span class="string">'\u{2084}' </span>| <span class="string">'\u{2463}' </span>| <span class="string">'\u{24F8}' </span>| <span class="string">'\u{2779}' </span>| <span class="string">'\u{2783}'
+<a href=#359 id=359 data-nosnippet>359</a>        </span>| <span class="string">'\u{278D}' </span>| <span class="string">'\u{FF14}' </span>=&gt; <span class="string">"4"</span>,
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="string">'\u{248B}' </span>=&gt; <span class="string">"4."</span>,
+<a href=#361 id=361 data-nosnippet>361</a>        <span class="string">'\u{2477}' </span>=&gt; <span class="string">"(4)"</span>,
+<a href=#362 id=362 data-nosnippet>362</a>        <span class="string">'\u{2075}' </span>| <span class="string">'\u{2085}' </span>| <span class="string">'\u{2464}' </span>| <span class="string">'\u{24F9}' </span>| <span class="string">'\u{277A}' </span>| <span class="string">'\u{2784}'
+<a href=#363 id=363 data-nosnippet>363</a>        </span>| <span class="string">'\u{278E}' </span>| <span class="string">'\u{FF15}' </span>=&gt; <span class="string">"5"</span>,
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="string">'\u{248C}' </span>=&gt; <span class="string">"5."</span>,
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="string">'\u{2478}' </span>=&gt; <span class="string">"(5)"</span>,
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="string">'\u{2076}' </span>| <span class="string">'\u{2086}' </span>| <span class="string">'\u{2465}' </span>| <span class="string">'\u{24FA}' </span>| <span class="string">'\u{277B}' </span>| <span class="string">'\u{2785}'
+<a href=#367 id=367 data-nosnippet>367</a>        </span>| <span class="string">'\u{278F}' </span>| <span class="string">'\u{FF16}' </span>=&gt; <span class="string">"6"</span>,
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="string">'\u{248D}' </span>=&gt; <span class="string">"6."</span>,
+<a href=#369 id=369 data-nosnippet>369</a>        <span class="string">'\u{2479}' </span>=&gt; <span class="string">"(6)"</span>,
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="string">'\u{2077}' </span>| <span class="string">'\u{2087}' </span>| <span class="string">'\u{2466}' </span>| <span class="string">'\u{24FB}' </span>| <span class="string">'\u{277C}' </span>| <span class="string">'\u{2786}'
+<a href=#371 id=371 data-nosnippet>371</a>        </span>| <span class="string">'\u{2790}' </span>| <span class="string">'\u{FF17}' </span>=&gt; <span class="string">"7"</span>,
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="string">'\u{248E}' </span>=&gt; <span class="string">"7."</span>,
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="string">'\u{247A}' </span>=&gt; <span class="string">"(7)"</span>,
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="string">'\u{2078}' </span>| <span class="string">'\u{2088}' </span>| <span class="string">'\u{2467}' </span>| <span class="string">'\u{24FC}' </span>| <span class="string">'\u{277D}' </span>| <span class="string">'\u{2787}'
+<a href=#375 id=375 data-nosnippet>375</a>        </span>| <span class="string">'\u{2791}' </span>| <span class="string">'\u{FF18}' </span>=&gt; <span class="string">"8"</span>,
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="string">'\u{248F}' </span>=&gt; <span class="string">"8."</span>,
+<a href=#377 id=377 data-nosnippet>377</a>        <span class="string">'\u{247B}' </span>=&gt; <span class="string">"(8)"</span>,
+<a href=#378 id=378 data-nosnippet>378</a>        <span class="string">'\u{2079}' </span>| <span class="string">'\u{2089}' </span>| <span class="string">'\u{2468}' </span>| <span class="string">'\u{24FD}' </span>| <span class="string">'\u{277E}' </span>| <span class="string">'\u{2788}'
+<a href=#379 id=379 data-nosnippet>379</a>        </span>| <span class="string">'\u{2792}' </span>| <span class="string">'\u{FF19}' </span>=&gt; <span class="string">"9"</span>,
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="string">'\u{2490}' </span>=&gt; <span class="string">"9."</span>,
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="string">'\u{247C}' </span>=&gt; <span class="string">"(9)"</span>,
+<a href=#382 id=382 data-nosnippet>382</a>        <span class="string">'\u{2469}' </span>| <span class="string">'\u{24FE}' </span>| <span class="string">'\u{277F}' </span>| <span class="string">'\u{2789}' </span>| <span class="string">'\u{2793}' </span>=&gt; <span class="string">"10"</span>,
+<a href=#383 id=383 data-nosnippet>383</a>        <span class="string">'\u{2491}' </span>=&gt; <span class="string">"10."</span>,
+<a href=#384 id=384 data-nosnippet>384</a>        <span class="string">'\u{247D}' </span>=&gt; <span class="string">"(10)"</span>,
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="string">'\u{246A}' </span>| <span class="string">'\u{24EB}' </span>=&gt; <span class="string">"11"</span>,
+<a href=#386 id=386 data-nosnippet>386</a>        <span class="string">'\u{2492}' </span>=&gt; <span class="string">"11."</span>,
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="string">'\u{247E}' </span>=&gt; <span class="string">"(11)"</span>,
+<a href=#388 id=388 data-nosnippet>388</a>        <span class="string">'\u{246B}' </span>| <span class="string">'\u{24EC}' </span>=&gt; <span class="string">"12"</span>,
+<a href=#389 id=389 data-nosnippet>389</a>        <span class="string">'\u{2493}' </span>=&gt; <span class="string">"12."</span>,
+<a href=#390 id=390 data-nosnippet>390</a>        <span class="string">'\u{247F}' </span>=&gt; <span class="string">"(12)"</span>,
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="string">'\u{246C}' </span>| <span class="string">'\u{24ED}' </span>=&gt; <span class="string">"13"</span>,
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="string">'\u{2494}' </span>=&gt; <span class="string">"13."</span>,
+<a href=#393 id=393 data-nosnippet>393</a>        <span class="string">'\u{2480}' </span>=&gt; <span class="string">"(13)"</span>,
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="string">'\u{246D}' </span>| <span class="string">'\u{24EE}' </span>=&gt; <span class="string">"14"</span>,
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="string">'\u{2495}' </span>=&gt; <span class="string">"14."</span>,
+<a href=#396 id=396 data-nosnippet>396</a>        <span class="string">'\u{2481}' </span>=&gt; <span class="string">"(14)"</span>,
+<a href=#397 id=397 data-nosnippet>397</a>        <span class="string">'\u{246E}' </span>| <span class="string">'\u{24EF}' </span>=&gt; <span class="string">"15"</span>,
+<a href=#398 id=398 data-nosnippet>398</a>        <span class="string">'\u{2496}' </span>=&gt; <span class="string">"15."</span>,
+<a href=#399 id=399 data-nosnippet>399</a>        <span class="string">'\u{2482}' </span>=&gt; <span class="string">"(15)"</span>,
+<a href=#400 id=400 data-nosnippet>400</a>        <span class="string">'\u{246F}' </span>| <span class="string">'\u{24F0}' </span>=&gt; <span class="string">"16"</span>,
+<a href=#401 id=401 data-nosnippet>401</a>        <span class="string">'\u{2497}' </span>=&gt; <span class="string">"16."</span>,
+<a href=#402 id=402 data-nosnippet>402</a>        <span class="string">'\u{2483}' </span>=&gt; <span class="string">"(16)"</span>,
+<a href=#403 id=403 data-nosnippet>403</a>        <span class="string">'\u{2470}' </span>| <span class="string">'\u{24F1}' </span>=&gt; <span class="string">"17"</span>,
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="string">'\u{2498}' </span>=&gt; <span class="string">"17."</span>,
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="string">'\u{2484}' </span>=&gt; <span class="string">"(17)"</span>,
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="string">'\u{2471}' </span>| <span class="string">'\u{24F2}' </span>=&gt; <span class="string">"18"</span>,
+<a href=#407 id=407 data-nosnippet>407</a>        <span class="string">'\u{2499}' </span>=&gt; <span class="string">"18."</span>,
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="string">'\u{2485}' </span>=&gt; <span class="string">"(18)"</span>,
+<a href=#409 id=409 data-nosnippet>409</a>        <span class="string">'\u{2472}' </span>| <span class="string">'\u{24F3}' </span>=&gt; <span class="string">"19"</span>,
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="string">'\u{249A}' </span>=&gt; <span class="string">"19."</span>,
+<a href=#411 id=411 data-nosnippet>411</a>        <span class="string">'\u{2486}' </span>=&gt; <span class="string">"(19)"</span>,
+<a href=#412 id=412 data-nosnippet>412</a>        <span class="string">'\u{2473}' </span>| <span class="string">'\u{24F4}' </span>=&gt; <span class="string">"20"</span>,
+<a href=#413 id=413 data-nosnippet>413</a>        <span class="string">'\u{249B}' </span>=&gt; <span class="string">"20."</span>,
+<a href=#414 id=414 data-nosnippet>414</a>        <span class="string">'\u{2487}' </span>=&gt; <span class="string">"(20)"</span>,
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="comment">// Quotes/dashes and punctuation
+<a href=#417 id=417 data-nosnippet>417</a>        </span><span class="string">'\u{00AB}' </span>| <span class="string">'\u{00BB}' </span>| <span class="string">'\u{201C}' </span>| <span class="string">'\u{201D}' </span>| <span class="string">'\u{201E}' </span>| <span class="string">'\u{2033}'
+<a href=#418 id=418 data-nosnippet>418</a>        </span>| <span class="string">'\u{2036}' </span>| <span class="string">'\u{275D}' </span>| <span class="string">'\u{275E}' </span>| <span class="string">'\u{276E}' </span>| <span class="string">'\u{276F}' </span>| <span class="string">'\u{FF02}' </span>=&gt; <span class="string">"\""</span>,
+<a href=#419 id=419 data-nosnippet>419</a>        <span class="string">'\u{2018}' </span>| <span class="string">'\u{2019}' </span>| <span class="string">'\u{201A}' </span>| <span class="string">'\u{201B}' </span>| <span class="string">'\u{2032}' </span>| <span class="string">'\u{2035}'
+<a href=#420 id=420 data-nosnippet>420</a>        </span>| <span class="string">'\u{2039}' </span>| <span class="string">'\u{203A}' </span>| <span class="string">'\u{275B}' </span>| <span class="string">'\u{275C}' </span>| <span class="string">'\u{FF07}' </span>=&gt; <span class="string">"'"</span>,
+<a href=#421 id=421 data-nosnippet>421</a>        <span class="string">'\u{2010}' </span>| <span class="string">'\u{2011}' </span>| <span class="string">'\u{2012}' </span>| <span class="string">'\u{2013}' </span>| <span class="string">'\u{2014}' </span>| <span class="string">'\u{207B}'
+<a href=#422 id=422 data-nosnippet>422</a>        </span>| <span class="string">'\u{208B}' </span>| <span class="string">'\u{FF0D}' </span>=&gt; <span class="string">"-"</span>,
+<a href=#423 id=423 data-nosnippet>423</a>        <span class="string">'\u{2045}' </span>| <span class="string">'\u{2772}' </span>| <span class="string">'\u{FF3B}' </span>=&gt; <span class="string">"["</span>,
+<a href=#424 id=424 data-nosnippet>424</a>        <span class="string">'\u{2046}' </span>| <span class="string">'\u{2773}' </span>| <span class="string">'\u{FF3D}' </span>=&gt; <span class="string">"]"</span>,
+<a href=#425 id=425 data-nosnippet>425</a>        <span class="string">'\u{207D}' </span>| <span class="string">'\u{208D}' </span>| <span class="string">'\u{2768}' </span>| <span class="string">'\u{276A}' </span>| <span class="string">'\u{FF08}' </span>=&gt; <span class="string">"("</span>,
+<a href=#426 id=426 data-nosnippet>426</a>        <span class="string">'\u{2E28}' </span>=&gt; <span class="string">"(("</span>,
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="string">'\u{207E}' </span>| <span class="string">'\u{208E}' </span>| <span class="string">'\u{2769}' </span>| <span class="string">'\u{276B}' </span>| <span class="string">'\u{FF09}' </span>=&gt; <span class="string">")"</span>,
+<a href=#428 id=428 data-nosnippet>428</a>        <span class="string">'\u{2E29}' </span>=&gt; <span class="string">"))"</span>,
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="string">'\u{276C}' </span>| <span class="string">'\u{2770}' </span>| <span class="string">'\u{FF1C}' </span>=&gt; <span class="string">"&lt;"</span>,
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="string">'\u{276D}' </span>| <span class="string">'\u{2771}' </span>| <span class="string">'\u{FF1E}' </span>=&gt; <span class="string">"&gt;"</span>,
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="string">'\u{2774}' </span>| <span class="string">'\u{FF5B}' </span>=&gt; <span class="string">"{"</span>,
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="string">'\u{2775}' </span>| <span class="string">'\u{FF5D}' </span>=&gt; <span class="string">"}"</span>,
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="string">'\u{207A}' </span>| <span class="string">'\u{208A}' </span>| <span class="string">'\u{FF0B}' </span>=&gt; <span class="string">"+"</span>,
+<a href=#434 id=434 data-nosnippet>434</a>        <span class="string">'\u{207C}' </span>| <span class="string">'\u{208C}' </span>| <span class="string">'\u{FF1D}' </span>=&gt; <span class="string">"="</span>,
+<a href=#435 id=435 data-nosnippet>435</a>        <span class="string">'\u{FF01}' </span>=&gt; <span class="string">"!"</span>,
+<a href=#436 id=436 data-nosnippet>436</a>        <span class="string">'\u{203C}' </span>=&gt; <span class="string">"!!"</span>,
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="string">'\u{2049}' </span>=&gt; <span class="string">"!?"</span>,
+<a href=#438 id=438 data-nosnippet>438</a>        <span class="string">'\u{FF03}' </span>=&gt; <span class="string">"#"</span>,
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="string">'\u{FF04}' </span>=&gt; <span class="string">"$"</span>,
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="string">'\u{2052}' </span>| <span class="string">'\u{FF05}' </span>=&gt; <span class="string">"%"</span>,
+<a href=#441 id=441 data-nosnippet>441</a>        <span class="string">'\u{FF06}' </span>=&gt; <span class="string">"&amp;"</span>,
+<a href=#442 id=442 data-nosnippet>442</a>        <span class="string">'\u{204E}' </span>| <span class="string">'\u{FF0A}' </span>=&gt; <span class="string">"*"</span>,
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="string">'\u{FF0C}' </span>=&gt; <span class="string">","</span>,
+<a href=#444 id=444 data-nosnippet>444</a>        <span class="string">'\u{FF0E}' </span>=&gt; <span class="string">"."</span>,
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="string">'\u{2044}' </span>| <span class="string">'\u{FF0F}' </span>=&gt; <span class="string">"/"</span>,
+<a href=#446 id=446 data-nosnippet>446</a>        <span class="string">'\u{FF1A}' </span>=&gt; <span class="string">":"</span>,
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="string">'\u{204F}' </span>| <span class="string">'\u{FF1B}' </span>=&gt; <span class="string">";"</span>,
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="string">'\u{FF1F}' </span>=&gt; <span class="string">"?"</span>,
+<a href=#449 id=449 data-nosnippet>449</a>        <span class="string">'\u{2047}' </span>=&gt; <span class="string">"??"</span>,
+<a href=#450 id=450 data-nosnippet>450</a>        <span class="string">'\u{2048}' </span>=&gt; <span class="string">"?!"</span>,
+<a href=#451 id=451 data-nosnippet>451</a>        <span class="string">'\u{FF20}' </span>=&gt; <span class="string">"@"</span>,
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="string">'\u{FF3C}' </span>=&gt; <span class="string">"\\"</span>,
+<a href=#453 id=453 data-nosnippet>453</a>        <span class="string">'\u{2038}' </span>| <span class="string">'\u{FF3E}' </span>=&gt; <span class="string">"^"</span>,
+<a href=#454 id=454 data-nosnippet>454</a>        <span class="string">'\u{FF3F}' </span>=&gt; <span class="string">"_"</span>,
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="string">'\u{2053}' </span>| <span class="string">'\u{FF5E}' </span>=&gt; <span class="string">"~"</span>,
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href=#458 id=458 data-nosnippet>458</a>    };
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="prelude-val">Some</span>(s)
+<a href=#460 id=460 data-nosnippet>460</a>}
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a><span class="attr">#[cfg(test)]
+<a href=#463 id=463 data-nosnippet>463</a></span><span class="kw">mod </span>tests {
+<a href=#464 id=464 data-nosnippet>464</a>    <span class="kw">use </span><span class="kw">super</span>::fold_to_ascii;
+<a href=#465 id=465 data-nosnippet>465</a>
+<a href=#466 id=466 data-nosnippet>466</a>    <span class="attr">#[test]
+<a href=#467 id=467 data-nosnippet>467</a>    </span><span class="kw">fn </span>basic_examples() {
+<a href=#468 id=468 data-nosnippet>468</a>        <span class="macro">assert_eq!</span>(
+<a href=#469 id=469 data-nosnippet>469</a>            fold_to_ascii(<span class="string">"ação café jalapeño Über"</span>),
+<a href=#470 id=470 data-nosnippet>470</a>            <span class="string">"acao cafe jalapeno Uber"
+<a href=#471 id=471 data-nosnippet>471</a>        </span>);
+<a href=#472 id=472 data-nosnippet>472</a>        <span class="macro">assert_eq!</span>(fold_to_ascii(<span class="string">"Æsop and Œuvre"</span>), <span class="string">"AEsop and OEuvre"</span>);
+<a href=#473 id=473 data-nosnippet>473</a>        <span class="macro">assert_eq!</span>(fold_to_ascii(<span class="string">"straße"</span>), <span class="string">"strasse"</span>);
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="macro">assert_eq!</span>(fold_to_ascii(<span class="string">"Łódź"</span>), <span class="string">"Lodz"</span>);
+<a href=#475 id=475 data-nosnippet>475</a>        <span class="macro">assert_eq!</span>(
+<a href=#476 id=476 data-nosnippet>476</a>            fold_to_ascii(<span class="string">"“quote” — test １②⒊"</span>),
+<a href=#477 id=477 data-nosnippet>477</a>            <span class="string">"\"quote\" - test 123."
+<a href=#478 id=478 data-nosnippet>478</a>        </span>);
+<a href=#479 id=479 data-nosnippet>479</a>
+<a href=#480 id=480 data-nosnippet>480</a>        <span class="comment">// japanese characters are unchanged
+<a href=#481 id=481 data-nosnippet>481</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#482 id=482 data-nosnippet>482</a>            fold_to_ascii(<span class="string">"日本語のテキストです。Qdrantのコードで単体テストで使用されています。"</span>),
+<a href=#483 id=483 data-nosnippet>483</a>            <span class="string">"日本語のテキストです。Qdrantのコードで単体テストで使用されています。"
+<a href=#484 id=484 data-nosnippet>484</a>        </span>);
+<a href=#485 id=485 data-nosnippet>485</a>    }
+<a href=#486 id=486 data-nosnippet>486</a>}
+</code></pre></div></section></main></body></html>
