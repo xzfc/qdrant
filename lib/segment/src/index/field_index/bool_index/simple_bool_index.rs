@@ -353,8 +353,8 @@ impl PayloadFieldIndex for SimpleBoolIndex {
         &'a self,
         condition: &'a crate::types::FieldCondition,
         _: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue {
                 value: ValueVariants::Bool(value),
             })) => {
@@ -365,15 +365,15 @@ impl PayloadFieldIndex for SimpleBoolIndex {
                 }
             }
             _ => None,
-        }
+        })
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         _: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue {
                 value: ValueVariants::Bool(value),
             })) => {
@@ -389,14 +389,14 @@ impl PayloadFieldIndex for SimpleBoolIndex {
                 Some(estimation)
             }
             _ => None,
-        }
+        })
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         let make_block = |count, value, key: PayloadKeyType| {
             if count > threshold {
                 Some(PayloadBlockCondition {
@@ -421,7 +421,7 @@ impl PayloadFieldIndex for SimpleBoolIndex {
         .into_iter()
         .flatten();
 
-        Box::new(iter)
+        Ok(Box::new(iter))
     }
 
     fn count_indexed_points(&self) -> usize {

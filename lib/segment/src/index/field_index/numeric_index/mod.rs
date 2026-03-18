@@ -910,7 +910,7 @@ where
         &'a self,
         condition: &FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
         if let Some(Match::Value(MatchValue {
             value: ValueVariants::String(keyword),
         })) = &condition.r#match
@@ -919,11 +919,13 @@ where
 
             if let Ok(uuid) = Uuid::from_str(keyword) {
                 let value = T::from_u128(uuid.as_u128());
-                return Some(self.point_ids_by_value(value, hw_counter));
+                return Ok(Some(self.point_ids_by_value(value, hw_counter)));
             }
         }
 
-        let range_cond = condition.range.as_ref()?;
+        let Some(range_cond) = condition.range.as_ref() else {
+            return Ok(None);
+        };
 
         let (start_bound, end_bound) = match range_cond {
             RangeInterface::Float(float_range) => float_range.map(|float| T::from_f64(float.0)),
@@ -936,10 +938,10 @@ where
         // map.range
         // Panics if range start > end. Panics if range start == end and both bounds are Excluded.
         if !check_boundaries(&start_bound, &end_bound) {
-            return Some(Box::new(std::iter::empty()));
+            return Ok(Some(Box::new(std::iter::empty())));
         }
 
-        Some(match self {
+        Ok(Some(match self {
             NumericIndexInner::Mutable(index) => {
                 Box::new(index.values_range(start_bound, end_bound))
             }
@@ -949,14 +951,14 @@ where
             NumericIndexInner::Mmap(index) => {
                 Box::new(index.values_range(start_bound, end_bound, hw_counter))
             }
-        })
+        }))
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
         if let Some(Match::Value(MatchValue {
             value: ValueVariants::String(keyword),
         })) = &condition.r#match
@@ -966,28 +968,28 @@ where
                 let key = T::from_u128(uuid.as_u128());
 
                 let estimated_count = self.estimate_points(&key, hw_counter);
-                return Some(
+                return Ok(Some(
                     CardinalityEstimation::exact(estimated_count).with_primary_clause(
                         PrimaryCondition::Condition(Box::new(condition.clone())),
                     ),
-                );
+                ));
             }
         }
 
-        condition.range.as_ref().map(|range| {
+        Ok(condition.range.as_ref().map(|range| {
             let mut cardinality = self.range_cardinality(range);
             cardinality
                 .primary_clauses
                 .push(PrimaryCondition::Condition(Box::new(condition.clone())));
             cardinality
-        })
+        }))
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         let mut lower_bound = Unbounded;
         let mut pre_lower_bound: Option<Bound<T>> = None;
         let mut payload_conditions = Vec::new();
@@ -1051,7 +1053,7 @@ where
                 Unbounded => break,
             };
         }
-        Box::new(payload_conditions.into_iter())
+        Ok(Box::new(payload_conditions.into_iter()))
     }
 }
 

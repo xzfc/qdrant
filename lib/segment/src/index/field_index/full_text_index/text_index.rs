@@ -594,48 +594,52 @@ impl PayloadFieldIndex for FullTextIndex {
         &'a self,
         condition: &'a FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
         let parsed_query_opt = match &condition.r#match {
             Some(Match::Text(MatchText { text })) => self.parse_text_query(text, hw_counter),
             Some(Match::Phrase(MatchPhrase { phrase })) => {
                 self.parse_phrase_query(phrase, hw_counter)
             }
-            _ => return None,
+            _ => return Ok(None),
         };
 
         let Some(parsed_query) = parsed_query_opt else {
-            return Some(Box::new(std::iter::empty()));
+            return Ok(Some(Box::new(std::iter::empty())));
         };
 
-        Some(self.filter_query(parsed_query, hw_counter))
+        Ok(Some(self.filter_query(parsed_query, hw_counter)))
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
         let parsed_query_opt = match &condition.r#match {
             Some(Match::Text(MatchText { text })) => self.parse_text_query(text, hw_counter),
             Some(Match::Phrase(MatchPhrase { phrase })) => {
                 self.parse_phrase_query(phrase, hw_counter)
             }
-            _ => return None,
+            _ => return Ok(None),
         };
 
         let Some(parsed_query) = parsed_query_opt else {
-            return Some(CardinalityEstimation::exact(0));
+            return Ok(Some(CardinalityEstimation::exact(0)));
         };
 
-        Some(self.estimate_query_cardinality(&parsed_query, condition, hw_counter))
+        Ok(Some(self.estimate_query_cardinality(
+            &parsed_query,
+            condition,
+            hw_counter,
+        )))
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        self.payload_blocks(threshold, key)
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(self.payload_blocks(threshold, key))
     }
 }
 

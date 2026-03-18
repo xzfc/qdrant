@@ -200,7 +200,7 @@ impl PayloadFieldIndex for BoolIndex {
         &'a self,
         condition: &'a crate::types::FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
         match self {
             #[cfg(feature = "rocksdb")]
             BoolIndex::Simple(index) => index.filter(condition, hw_counter),
@@ -212,7 +212,7 @@ impl PayloadFieldIndex for BoolIndex {
         &self,
         condition: &crate::types::FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<super::CardinalityEstimation> {
+    ) -> OperationResult<Option<super::CardinalityEstimation>> {
         match self {
             #[cfg(feature = "rocksdb")]
             BoolIndex::Simple(index) => index.estimate_cardinality(condition, hw_counter),
@@ -224,7 +224,7 @@ impl PayloadFieldIndex for BoolIndex {
         &self,
         threshold: usize,
         key: crate::types::PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = super::PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = super::PayloadBlockCondition> + '_>> {
         match self {
             #[cfg(feature = "rocksdb")]
             BoolIndex::Simple(index) => index.payload_blocks(threshold, key),
@@ -385,6 +385,7 @@ mod tests {
         let count = index
             .filter(&match_bool(match_on), &hw_counter)
             .unwrap()
+            .unwrap()
             .count();
 
         assert_eq!(count, expected_count);
@@ -451,11 +452,13 @@ mod tests {
         let point_offsets = new_index
             .filter(&match_bool(false), &hw_counter)
             .unwrap()
+            .unwrap()
             .collect_vec();
         assert_eq!(point_offsets, vec![1, 2, 3, 5, 6, 10]);
 
         let point_offsets = new_index
             .filter(&match_bool(true), &hw_counter)
+            .unwrap()
             .unwrap()
             .collect_vec();
         assert_eq!(point_offsets, vec![0, 2, 3, 4, 6, 11]);
@@ -488,6 +491,7 @@ mod tests {
         let point_offsets = index
             .filter(&match_bool(false), &hw_counter)
             .unwrap()
+            .unwrap()
             .collect_vec();
         assert_eq!(point_offsets, vec![idx]);
 
@@ -496,10 +500,12 @@ mod tests {
         let point_offsets = index
             .filter(&match_bool(true), &hw_counter)
             .unwrap()
+            .unwrap()
             .collect_vec();
         assert_eq!(point_offsets, vec![idx]);
         let point_offsets = index
             .filter(&match_bool(false), &hw_counter)
+            .unwrap()
             .unwrap()
             .collect_vec();
         assert!(point_offsets.is_empty());
@@ -550,6 +556,7 @@ mod tests {
 
         let blocks = index
             .payload_blocks(0, JsonPath::new(FIELD_NAME))
+            .unwrap()
             .collect_vec();
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[0].cardinality, 6);
@@ -580,11 +587,13 @@ mod tests {
 
         let cardinality = index
             .estimate_cardinality(&match_bool(true), &hw_counter)
+            .unwrap()
             .unwrap();
         assert_eq!(cardinality.exp, 6);
 
         let cardinality = index
             .estimate_cardinality(&match_bool(false), &hw_counter)
+            .unwrap()
             .unwrap();
         assert_eq!(cardinality.exp, 6);
     }

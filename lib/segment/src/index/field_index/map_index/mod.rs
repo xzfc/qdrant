@@ -763,8 +763,8 @@ impl PayloadFieldIndex for MapIndex<str> {
         &'a self,
         condition: &'a FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(keyword) => {
                     Some(Box::new(self.get_iterator(keyword.as_str(), hw_counter)))
@@ -798,15 +798,15 @@ impl PayloadFieldIndex for MapIndex<str> {
                 }
             },
             _ => None,
-        }
+        })
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(keyword) => {
                     let mut estimation = self.match_cardinality(keyword.as_str(), hw_counter);
@@ -860,15 +860,15 @@ impl PayloadFieldIndex for MapIndex<str> {
                 }
             },
             _ => None,
-        }
+        })
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(|value| {
                     (
@@ -882,7 +882,7 @@ impl PayloadFieldIndex for MapIndex<str> {
                     condition: FieldCondition::new_match(key.clone(), value.to_string().into()),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -911,11 +911,13 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
         &'a self,
         condition: &'a FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(uuid_string) => {
-                    let uuid = Uuid::from_str(uuid_string).ok()?;
+                    let Some(uuid) = Uuid::from_str(uuid_string).ok() else {
+                        return Ok(None);
+                    };
                     Some(Box::new(self.get_iterator(&uuid.as_u128(), hw_counter)))
                 }
                 ValueVariants::Integer(_) => None,
@@ -928,7 +930,9 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                         .map(|uuid_string| Uuid::from_str(uuid_string).map(|x| x.as_u128()))
                         .collect();
 
-                    let uuids = uuids.ok()?;
+                    let Some(uuids) = uuids.ok() else {
+                        return Ok(None);
+                    };
 
                     Some(Box::new(
                         uuids
@@ -952,7 +956,9 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                         .map(|uuid_string| Uuid::from_str(uuid_string).map(|x| x.as_u128()))
                         .collect();
 
-                    let excluded_uuids = uuids.ok()?;
+                    let Some(excluded_uuids) = uuids.ok() else {
+                        return Ok(None);
+                    };
                     let exclude_iter = self
                         .iter_values()
                         .filter(move |key| !excluded_uuids.contains(*key))
@@ -969,18 +975,20 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                 }
             },
             _ => None,
-        }
+        })
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(uuid_string) => {
-                    let uuid = Uuid::from_str(uuid_string).ok()?;
+                    let Some(uuid) = Uuid::from_str(uuid_string).ok() else {
+                        return Ok(None);
+                    };
                     let mut estimation = self.match_cardinality(&uuid.as_u128(), hw_counter);
                     estimation
                         .primary_clauses
@@ -997,7 +1005,9 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                         .map(|uuid_string| Uuid::from_str(uuid_string).map(|x| x.as_u128()))
                         .collect();
 
-                    let uuids = uuids.ok()?;
+                    let Some(uuids) = uuids.ok() else {
+                        return Ok(None);
+                    };
 
                     let estimations = uuids
                         .into_iter()
@@ -1031,7 +1041,9 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                         .map(|uuid_string| Uuid::from_str(uuid_string).map(|x| x.as_u128()))
                         .collect();
 
-                    let excluded_uuids = uuids.ok()?;
+                    let Some(excluded_uuids) = uuids.ok() else {
+                        return Ok(None);
+                    };
 
                     Some(self.except_cardinality(excluded_uuids.iter(), hw_counter))
                 }
@@ -1046,15 +1058,15 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                 }
             },
             _ => None,
-        }
+        })
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(move |value| {
                     (
@@ -1071,7 +1083,7 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                     ),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -1100,8 +1112,8 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
         &'a self,
         condition: &'a FieldCondition,
         hw_counter: &'a HardwareCounterCell,
-    ) -> Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<Box<dyn Iterator<Item = PointOffsetType> + 'a>>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(_) => None,
                 ValueVariants::Integer(integer) => {
@@ -1135,15 +1147,15 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
                 AnyVariants::Integers(integers) => Some(self.except_set(integers, hw_counter)),
             },
             _ => None,
-        }
+        })
     }
 
     fn estimate_cardinality(
         &self,
         condition: &FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<CardinalityEstimation> {
-        match &condition.r#match {
+    ) -> OperationResult<Option<CardinalityEstimation>> {
+        Ok(match &condition.r#match {
             Some(Match::Value(MatchValue { value })) => match value {
                 ValueVariants::String(_) => None,
                 ValueVariants::Integer(integer) => {
@@ -1197,15 +1209,15 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
                 }
             },
             _ => None,
-        }
+        })
     }
 
     fn payload_blocks(
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(move |value| {
                     (
@@ -1219,7 +1231,7 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
                     condition: FieldCondition::new_match(key.clone(), (*value).into()),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -1505,7 +1517,10 @@ mod tests {
 
         let index = builder.finalize().unwrap();
 
-        for block in index.payload_blocks(50, PayloadKeyType::new("test_uuid")) {
+        for block in index
+            .payload_blocks(50, PayloadKeyType::new("test_uuid"))
+            .unwrap()
+        {
             black_box(block);
         }
     }
