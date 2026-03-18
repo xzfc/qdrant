@@ -212,7 +212,7 @@ impl PayloadFieldIndex for BoolIndex {
         &self,
         condition: &crate::types::FieldCondition,
         hw_counter: &HardwareCounterCell,
-    ) -> Option<super::CardinalityEstimation> {
+    ) -> OperationResult<Option<super::CardinalityEstimation>> {
         match self {
             #[cfg(feature = "rocksdb")]
             BoolIndex::Simple(index) => index.estimate_cardinality(condition, hw_counter),
@@ -224,7 +224,7 @@ impl PayloadFieldIndex for BoolIndex {
         &self,
         threshold: usize,
         key: crate::types::PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = super::PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = super::PayloadBlockCondition> + '_>> {
         match self {
             #[cfg(feature = "rocksdb")]
             BoolIndex::Simple(index) => index.payload_blocks(threshold, key),
@@ -550,6 +550,7 @@ mod tests {
 
         let blocks = index
             .payload_blocks(0, JsonPath::new(FIELD_NAME))
+            .unwrap()
             .collect_vec();
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[0].cardinality, 6);
@@ -580,11 +581,13 @@ mod tests {
 
         let cardinality = index
             .estimate_cardinality(&match_bool(true), &hw_counter)
+            .unwrap()
             .unwrap();
         assert_eq!(cardinality.exp, 6);
 
         let cardinality = index
             .estimate_cardinality(&match_bool(false), &hw_counter)
+            .unwrap()
             .unwrap();
         assert_eq!(cardinality.exp, 6);
     }
