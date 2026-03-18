@@ -196,9 +196,9 @@ impl PayloadIndex for PlainPayloadIndex {
         &self,
         _field: PayloadKeyTypeRef,
         _threshold: usize,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         // No blocks for un-indexed payload
-        Box::new(std::iter::empty())
+        Ok(Box::new(std::iter::empty()))
     }
 
     fn overwrite_payload(
