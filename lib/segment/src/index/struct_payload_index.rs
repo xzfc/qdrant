@@ -12,6 +12,7 @@ use common::either_variant::EitherVariant;
 use common::iterator_ext::IteratorExt;
 use common::types::PointOffsetType;
 use fs_err as fs;
+use itertools::Itertools as _;
 use schemars::_serde_json::Value;
 
 use super::field_index::facet_index::FacetIndexEnum;
@@ -1007,14 +1008,16 @@ impl PayloadIndex for StructPayloadIndex {
         &self,
         field: PayloadKeyTypeRef,
         threshold: usize,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         match self.field_indexes.get(field) {
-            None => Box::new(std::iter::empty()),
+            None => Ok(Box::new(std::iter::empty())),
             Some(indexes) => {
                 let field_clone = field.to_owned();
-                Box::new(indexes.iter().flat_map(move |field_index| {
-                    field_index.payload_blocks(threshold, field_clone.clone())
-                }))
+                let blocks: Vec<_> = indexes
+                    .iter()
+                    .map(|field_index| field_index.payload_blocks(threshold, field_clone.clone()))
+                    .process_results(|iter| iter.collect_vec())?;
+                Ok(Box::new(blocks.into_iter().flatten()))
             }
         }
     }
