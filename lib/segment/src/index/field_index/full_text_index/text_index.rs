@@ -634,8 +634,8 @@ impl PayloadFieldIndex for FullTextIndex {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        self.payload_blocks(threshold, key)
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(self.payload_blocks(threshold, key))
     }
 }
 

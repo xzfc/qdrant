@@ -424,7 +424,7 @@ impl PayloadFieldIndex for MutableBoolIndex {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         let make_block = |count, value, key: PayloadKeyType| {
             if count > threshold {
                 Some(PayloadBlockCondition {
@@ -449,7 +449,7 @@ impl PayloadFieldIndex for MutableBoolIndex {
         .into_iter()
         .flatten();
 
-        Box::new(iter)
+        Ok(Box::new(iter))
     }
 }
 
