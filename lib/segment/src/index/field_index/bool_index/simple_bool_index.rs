@@ -396,7 +396,7 @@ impl PayloadFieldIndex for SimpleBoolIndex {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
         let make_block = |count, value, key: PayloadKeyType| {
             if count > threshold {
                 Some(PayloadBlockCondition {
@@ -421,7 +421,7 @@ impl PayloadFieldIndex for SimpleBoolIndex {
         .into_iter()
         .flatten();
 
-        Box::new(iter)
+        Ok(Box::new(iter))
     }
 
     fn count_indexed_points(&self) -> usize {

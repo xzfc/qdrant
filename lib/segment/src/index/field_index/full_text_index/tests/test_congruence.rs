@@ -461,9 +461,11 @@ fn test_congruence(
                 assert_eq!(
                     index_a
                         .payload_blocks(threshold, JsonPath::new(FIELD_NAME))
+                        .unwrap()
                         .count(),
                     index_b
                         .payload_blocks(threshold, JsonPath::new(FIELD_NAME))
+                        .unwrap()
                         .count(),
                 );
             }

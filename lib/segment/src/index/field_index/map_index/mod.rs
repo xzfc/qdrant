@@ -867,8 +867,8 @@ impl PayloadFieldIndex for MapIndex<str> {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(|value| {
                     (
@@ -882,7 +882,7 @@ impl PayloadFieldIndex for MapIndex<str> {
                     condition: FieldCondition::new_match(key.clone(), value.to_string().into()),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -1053,8 +1053,8 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(move |value| {
                     (
@@ -1071,7 +1071,7 @@ impl PayloadFieldIndex for MapIndex<UuidIntType> {
                     ),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -1204,8 +1204,8 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
         &self,
         threshold: usize,
         key: PayloadKeyType,
-    ) -> Box<dyn Iterator<Item = PayloadBlockCondition> + '_> {
-        Box::new(
+    ) -> OperationResult<Box<dyn Iterator<Item = PayloadBlockCondition> + '_>> {
+        Ok(Box::new(
             self.iter_values()
                 .map(move |value| {
                     (
@@ -1219,7 +1219,7 @@ impl PayloadFieldIndex for MapIndex<IntPayloadType> {
                     condition: FieldCondition::new_match(key.clone(), (*value).into()),
                     cardinality: count,
                 }),
-        )
+        ))
     }
 }
 
@@ -1505,7 +1505,10 @@ mod tests {
 
         let index = builder.finalize().unwrap();
 
-        for block in index.payload_blocks(50, PayloadKeyType::new("test_uuid")) {
+        for block in index
+            .payload_blocks(50, PayloadKeyType::new("test_uuid"))
+            .unwrap()
+        {
             black_box(block);
         }
     }
